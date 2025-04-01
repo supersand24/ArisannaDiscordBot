@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 public class JsonCounterManager {
 
     private final Path filePath;
-    private final Map<String, Integer> counters = new ConcurrentHashMap<>();
+    private final Map<String, CounterData> counters = new ConcurrentHashMap<>();
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private volatile boolean dirty = false;
@@ -39,11 +39,8 @@ public class JsonCounterManager {
         try {
             if (Files.exists(filePath)) {
                 String json = Files.readString(filePath);
-                Type type = new TypeToken<Map<String, Integer>>() {}.getType();
-                Map<String, Integer> raw = gson.fromJson(json, type);
-                for (Map.Entry<String, Integer> entry : raw.entrySet()) {
-                    counters.put(entry.getKey(), entry.getValue().intValue());
-                }
+                Type type = new TypeToken<Map<String, CounterData>>() {}.getType();
+                counters.putAll(gson.fromJson(json, type));
             }
         } catch (IOException e) {
             log.error("Failed to save counters: " + e.getMessage());
@@ -64,16 +61,21 @@ public class JsonCounterManager {
     }
     
     public void adjust(String key, int amount) {
-        counters.merge(key, amount, Integer::sum);
+        CounterData counter = get(key);
+        if (counter != null) {
+            counter.adjust(amount);
+        } else {
+            log.error("Counter '" + key + "' does not exist.");
+        }
         dirty = true;
     }
 
-    public int get(String key) {
-        return counters.getOrDefault(key, 0);
+    public CounterData get(String key) {
+        return counters.getOrDefault(key, new CounterData());
     }
 
     public void set(String key, int value) {
-        counters.put(key, value);
+        counters.get(key).value = value;
         dirty = true;
     }
 
