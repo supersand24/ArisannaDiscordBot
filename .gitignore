@@ -1,6 +1,9 @@
 # Compiled class file
 *.class
 
+# Logback File
+target/classes/logback.xml
+
 # Log file
 *.log
 
@@ -23,5 +26,5 @@
 hs_err_pid*
 replay_pid*
 
-
-target/classes/logback.xml
+# Data Folder
+data/*

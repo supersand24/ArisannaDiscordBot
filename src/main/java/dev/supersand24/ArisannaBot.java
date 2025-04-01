@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 public class ArisannaBot {
 
     static JDA jda;
+    static JsonCounterManager counter = new JsonCounterManager("data/counters.json", 10);
 
     public static void main(String[] args) {
         
@@ -17,6 +18,8 @@ public class ArisannaBot {
             GatewayIntent.SCHEDULED_EVENTS
         ).setMemberCachePolicy(MemberCachePolicy.ALL);
 
+        //builder.addEventListeners( new Listener() );
+
         builder.addEventListeners( new Listener() );
 
         try {
@@ -25,6 +28,8 @@ public class ArisannaBot {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+
+        counter.adjust("sessions", 1);
 
     }
 }
