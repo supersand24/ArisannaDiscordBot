@@ -60,6 +60,10 @@ public class ArisannaBot {
                             new OptionData(OptionType.STRING, "counter", "Counter to Modify.", true, true),
                             new OptionData(OptionType.INTEGER, "value", "New value of the Counter.", true)
                         ),
+                    new SubcommandData("display", "Displays an existing Counter.")
+                            .addOptions(
+                                    new OptionData(OptionType.STRING, "counter", "Counter to Display.", true, true)
+                            ),
                     new SubcommandData("create", "Creates a new Counter.")
                         .addOptions(
                             new OptionData(OptionType.STRING, "name", "Name of the Counter.", true),

@@ -15,8 +15,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.css.Counter;
 
 public class JsonCounterManager {
 
@@ -40,6 +42,11 @@ public class JsonCounterManager {
                 String json = Files.readString(filePath);
                 Type type = new TypeToken<Map<String, CounterData>>() {}.getType();
                 counters.putAll(gson.fromJson(json, type));
+
+                for (Map.Entry<String, CounterData> entry : counters.entrySet()) {
+                    CounterData counterData = entry.getValue();
+                    counterData.name = entry.getKey();
+                }
             }
         } catch (IOException e) {
             log.error("Failed to load counters: " + e.getMessage());
@@ -69,16 +76,19 @@ public class JsonCounterManager {
         }
     }
 
-    public static String createCounter(String name, String description, int initialValue, int minValue, int maxValue, String userId) {
+    public static void createCounter(String name, String description, int initialValue, int minValue, int maxValue, String userId) {
         CounterData counter = new CounterData(name, description, initialValue, minValue, maxValue, userId);
         counters.put(name, counter);
         dirty = true;
-        return name;
     }
 
-    public static void deleteCouner(String key) {
+    public static void deleteCounter(String key) {
         counters.remove(key);
         dirty = true;
+    }
+
+    public static MessageEmbed getCounterEmbed(String key) {
+        return get(key).toEmbed();
     }
 
     public static CounterData get(String key) {

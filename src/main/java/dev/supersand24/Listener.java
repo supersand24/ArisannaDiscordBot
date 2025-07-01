@@ -73,7 +73,6 @@ public class Listener extends ListenerAdapter {
                 }
 
                 String subCommandGroup = e.getSubcommandGroup();
-                log.info(subCommandGroup);
 
                 if (subCommandGroup == null) {
                     switch (e.getSubcommandName()) {
@@ -90,8 +89,9 @@ public class Listener extends ListenerAdapter {
                             JsonCounterManager.set(counterName, value);
                             e.reply(counterName + " counter set to " + value + ".").queue();
                         }
+                        case "display" -> e.replyEmbeds(JsonCounterManager.getCounterEmbed(counterName)).queue();
                         case "delete" -> {
-                            JsonCounterManager.deleteCouner(counterName);
+                            JsonCounterManager.deleteCounter(counterName);
                             e.reply(counterName + " counter was deleted!").queue();
                         }
                     }
