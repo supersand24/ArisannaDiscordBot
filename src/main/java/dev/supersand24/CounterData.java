@@ -14,6 +14,8 @@ public class CounterData {
     public String description;
     public Integer maxValue;
     public Integer minValue;
+    public Integer incrementAmount = 1;
+    public Integer decrementAmount = 1;
 
     public CounterData() {
         
@@ -28,9 +30,19 @@ public class CounterData {
         this.allowedEditors.add(creator);
     }
 
-    public void adjust(int amount) {
-        value += amount;
+    public void set(int amount) {
+        value = amount;
         if (maxValue != null) value = Math.min(value, maxValue);
+        if (minValue != null) value = Math.max(value, minValue);
+    }
+
+    public void increment() {
+        value += incrementAmount;
+        if (maxValue != null) value = Math.min(value, maxValue);
+    }
+
+    public void decrement() {
+        value -= decrementAmount;
         if (minValue != null) value = Math.max(value, minValue);
     }
 

@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.css.Counter;
 
 public class JsonCounterManager {
 
@@ -62,20 +61,6 @@ public class JsonCounterManager {
         }, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
     }
 
-    public static void increment(String key) {
-        adjust(key, 1);
-    }
-    
-    public static void adjust(String key, int amount) {
-        CounterData counter = get(key);
-        if (counter != null) {
-            counter.adjust(amount);
-            dirty = true;
-        } else {
-            log.error("Counter '" + key + "' does not exist.");
-        }
-    }
-
     public static void createCounter(String name, String description, int initialValue, int minValue, int maxValue, String userId) {
         CounterData counter = new CounterData(name, description, initialValue, minValue, maxValue, userId);
         counters.put(name, counter);
@@ -88,44 +73,106 @@ public class JsonCounterManager {
     }
 
     public static MessageEmbed getCounterEmbed(String key) {
-        return get(key).toEmbed();
-    }
-
-    public static CounterData get(String key) {
-        return counters.get(key);
+        return counters.get(key).toEmbed();
     }
 
     public static void setDescription(String key, String description) {
-        get(key).description = description;
-        markDirty();
+        counters.get(key).description = description;
+        dirty = true;
     }
 
-    public static void setMinValue(String key, int minValue) {
-        get(key).minValue = minValue;
-        markDirty();
+    public static void increment(String key) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            counter.increment();
+            dirty = true;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+        }
     }
 
-    public static void setMaxValue(String key, int maxValue) {
-        get(key).maxValue = maxValue;
-        markDirty();
+    public static void decrement(String key) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            counter.decrement();
+            dirty = true;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+        }
     }
 
-    public static Set<String> getCounterNames() {
-        return counters.keySet();
-    }
-
-    public static void set(String key, int value) {
+    public static void setValue(String key, int value) {
         CounterData counter = counters.get(key);
         if (counter != null) {
             counter.value = value;
             dirty = true;
         } else {
-            log.error("Counter '" + key + "' does not exist.");
+            log.error("Counter " + key + " does not exist.");
         }
     }
 
-    public static void markDirty() {
-        dirty = true;
+    public static int getValue(String key) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            return counter.value;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+            return 0;
+        }
+    }
+
+    public static void setMinValue(String key, int minValue) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            counter.minValue = minValue;
+            dirty = true;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+        }
+    }
+
+    public static void setMaxValue(String key, int maxValue) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            counter.maxValue = maxValue;
+            dirty = true;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+        }
+    }
+
+    public static boolean canEdit(String key, String userId) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            return counter.allowedEditors.contains(userId);
+        } else {
+            log.error("Counter " + key + " does not exist.");
+            return false;
+        }
+    }
+
+    public static void addEditor(String key, String userId) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            counter.allowedEditors.add(userId);
+            dirty = true;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+        }
+    }
+
+    public static void removeEditor(String key, String userId) {
+        CounterData counter = counters.get(key);
+        if (counter != null) {
+            counter.allowedEditors.remove(userId);
+            dirty = true;
+        } else {
+            log.error("Counter " + key + " does not exist.");
+        }
+    }
+
+    public static Set<String> getCounterNames() {
+        return counters.keySet();
     }
 
     public static void save() {

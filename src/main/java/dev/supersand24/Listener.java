@@ -57,8 +57,6 @@ public class Listener extends ListenerAdapter {
                 }
 
                 String counterName = e.getOption("counter").getAsString();
-                //Need to not expose counter here, need to update to strictly use the Manager.
-                CounterData counter = JsonCounterManager.get(counterName);
 
                 //Check to see if Counter exists
                 if (!JsonCounterManager.getCounterNames().contains(counterName)) {
@@ -67,61 +65,58 @@ public class Listener extends ListenerAdapter {
                 }
 
                 //Check to see if user has editing access
-                if (!counter.allowedEditors.contains(commandUser.getId())) {
+                if (!JsonCounterManager.canEdit(counterName, commandUser.getId())) {
                     e.reply("You don't have editing access on " + counterName + " counter.").setEphemeral(true).queue();
                     return;
                 }
 
-                String subCommandGroup = e.getSubcommandGroup();
-
-                if (subCommandGroup == null) {
-                    switch (e.getSubcommandName()) {
-                        case "increment" -> {
-                            JsonCounterManager.increment(counterName);
-                            e.reply(counterName + " counter incremented to " + counter.value + ".").queue();
-                        }
-                        case "decrement" -> {
-                            JsonCounterManager.adjust(counterName, -1);
-                            e.reply(counterName + " counter decremented to " + counter.value + ".").queue();
-                        }
-                        case "set" -> {
-                            int value = e.getOption("value").getAsInt();
-                            JsonCounterManager.set(counterName, value);
-                            e.reply(counterName + " counter set to " + value + ".").queue();
-                        }
-                        case "display" -> e.replyEmbeds(JsonCounterManager.getCounterEmbed(counterName)).queue();
-                        case "delete" -> {
-                            JsonCounterManager.deleteCounter(counterName);
-                            e.reply(counterName + " counter was deleted!").queue();
+                //Different Command Groups
+                switch (e.getSubcommandGroup()) {
+                    case null -> {
+                        switch (e.getSubcommandName()) {
+                            case "increment" -> {
+                                JsonCounterManager.increment(counterName);
+                                e.reply(counterName + " counter incremented to " + JsonCounterManager.getValue(counterName) + ".").queue();
+                            }
+                            case "decrement" -> {
+                                JsonCounterManager.decrement(counterName);
+                                e.reply(counterName + " counter decremented to " + JsonCounterManager.getValue(counterName) + ".").queue();
+                            }
+                            case "set" -> {
+                                int value = e.getOption("value").getAsInt();
+                                JsonCounterManager.setValue(counterName, value);
+                                e.reply(counterName + " counter set to " + value + ".").queue();
+                            }
+                            case "display" -> e.replyEmbeds(JsonCounterManager.getCounterEmbed(counterName)).queue();
+                            case "delete" -> {
+                                JsonCounterManager.deleteCounter(counterName);
+                                e.reply(counterName + " counter was deleted!").queue();
+                            }
                         }
                     }
-                } else {
-                    switch (subCommandGroup) {
-                        case "editor" -> {
-                            User editor = e.getOption("editor").getAsUser();
-    
-                            switch (e.getSubcommandName()) {
-                                case "add" -> {
-                                    if (counter.allowedEditors.contains(editor.getId())) {
-                                        e.reply(editor.getName() + " is already authorized on " + counter.name + " counter.").setEphemeral(true).queue();
-                                    } else {
-                                        counter.allowedEditors.add(editor.getId());
-                                        e.reply(editor.getName() + " is now an editor of " + counter.name + " counter.").setEphemeral(true).queue();
-                                        JsonCounterManager.markDirty();
-                                    }
+                    case "editor" -> {
+                        User editor = e.getOption("editor").getAsUser();
+
+                        switch (e.getSubcommandName()) {
+                            case "add" -> {
+                                if (JsonCounterManager.canEdit(counterName, editor.getId())) {
+                                    e.reply(editor.getName() + " is already authorized on " + counterName + " counter.").setEphemeral(true).queue();
+                                } else {
+                                    JsonCounterManager.addEditor(counterName, editor.getId());
+                                    e.reply(editor.getName() + " is now an editor of " + counterName + " counter.").setEphemeral(true).queue();
                                 }
-                                case "remove" -> {
-                                    if (counter.allowedEditors.contains(editor.getId())) {
-                                        counter.allowedEditors.remove(editor.getId());
-                                        e.reply(editor.getName() + " is no longer an editor of " + counter.name + " counter.").setEphemeral(true).queue();
-                                        JsonCounterManager.markDirty();
-                                    } else {
-                                        e.reply(editor.getName() + " is not currently authorized on " + counter.name + " counter.").setEphemeral(true).queue();
-                                    }
+                            }
+                            case "remove" -> {
+                                if (JsonCounterManager.canEdit(counterName, editor.getId())) {
+                                    JsonCounterManager.removeEditor(counterName, editor.getId());
+                                    e.reply(editor.getName() + " is no longer an editor of " + counterName + " counter.").setEphemeral(true).queue();
+                                } else {
+                                    e.reply(editor.getName() + " is not currently authorized on " + counterName + " counter.").setEphemeral(true).queue();
                                 }
                             }
                         }
                     }
+                    default -> throw new IllegalStateException("Unexpected value: " + e.getSubcommandGroup());
                 }
             }
         }

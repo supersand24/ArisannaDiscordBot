@@ -82,9 +82,6 @@ public class ArisannaBot {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-        //counter.adjust("sessions", 1);
-
     }
 
     public static Guild getAriGuild() {
