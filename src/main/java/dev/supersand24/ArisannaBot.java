@@ -5,6 +5,7 @@ import dev.supersand24.expenses.ExpenseManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
@@ -15,6 +16,8 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 public class ArisannaBot {
 
     static JDA jda;
+
+    public static Emoji emojiLoadingArisanna;
 
     public static void main(String[] args) {
 
@@ -98,6 +101,8 @@ public class ArisannaBot {
                             new SubcommandData("settleup", "Calculate who owes who to settle all debts.")
                     )
             .queue();
+
+            emojiLoadingArisanna = Emoji.fromCustom("loading_arisanna", 1163570216018653316L, false);
 
         } catch (InterruptedException e) {
             e.printStackTrace();

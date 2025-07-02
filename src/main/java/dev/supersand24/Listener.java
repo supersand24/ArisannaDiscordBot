@@ -185,22 +185,8 @@ public class Listener extends ListenerAdapter {
                     }
                     case "settleup" -> {
                         e.deferReply().queue();
-
-                        List<String> settlementSteps = ExpenseManager.calculateSettlement();
-
-                        EmbedBuilder embed = new EmbedBuilder();
-                        embed.setColor(Color.GREEN);
-                        embed.setTitle("Settlement Plan");
-                        embed.setTimestamp(Instant.now());
-
-                        if (settlementSteps.isEmpty()) {
-                            embed.setDescription("Everyone is perfectly settled up! No payments are needed.");
-                        } else {
-                            embed.setDescription(String.join("\n", settlementSteps));
-                            embed.setFooter("Please use these instructions to settle all debts for the trip.");
-                        }
-
-                        e.getHook().sendMessageEmbeds(embed.build()).queue();
+                        MessageCreateData messageData = ExpenseManager.buildSettlementView();
+                        e.getHook().sendMessage(messageData).queue();
                     }
                 }
             }
@@ -280,6 +266,32 @@ public class Listener extends ListenerAdapter {
                     .queue();
 
 
+        } else if (prefix.equals("settleup-explain")) {
+            e.deferReply(true).queue();
+
+            EmbedBuilder embed = new EmbedBuilder();
+            embed.setColor(Color.BLUE);
+            embed.setTitle("How the Settlement is Calculated");
+
+            embed.addField("Totaling the Bills 💵",
+                    "First, I look at every single expense and add up the total amount of money each person spent. This shows who contributed money to the trip.",
+                    false);
+
+            embed.addField("Finding the 'Fair Share' ➗",
+                    "Next, for each shared expense, I calculate a \"fair share.\" For example, if a $30 pizza was shared by 3 people, everyone's fair share of that pizza is $10.",
+                    false);
+
+            embed.addField("Checking the Balance 👍",
+                    "Then, I compare how much you *spent* versus your total *fair share*.\n" +
+                            "• If you spent **more** than your share, you are **owed money**.\n" +
+                            "• If you spent **less** than your share, you **need to pay** money.",
+                    false);
+
+            embed.addField("Simplifying the Payments ➡️",
+                    "So, instead of a messy web of payments, I figure out the simplest way to get everyone even. I tell people who they need to pay and exactly how much, minimizing the number of payments required until all debts are cleared.",
+                    false);
+
+            e.getHook().sendMessageEmbeds(embed.build()).queue();
         }
     }
 

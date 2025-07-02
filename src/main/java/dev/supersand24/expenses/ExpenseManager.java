@@ -2,6 +2,7 @@ package dev.supersand24.expenses;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import dev.supersand24.ArisannaBot;
 import dev.supersand24.CurrencyUtils;
 import dev.supersand24.Paginator;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -207,7 +208,7 @@ public class ExpenseManager {
                 .collect(Collectors.toList());
     }
 
-    public static List<String> calculateSettlement() {
+    private static List<String> calculateSettlement() {
         Map<String, Double> balances = new HashMap<>();
 
         if (dataStore.getExpenses().isEmpty()) {
@@ -284,6 +285,29 @@ public class ExpenseManager {
             }
         }
         return transactions;
+    }
+
+    public static MessageCreateData buildSettlementView() {
+        List<String> settlementSteps = calculateSettlement();
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setColor(Color.GREEN);
+        embed.setTitle("Settlement Plan");
+        embed.setTimestamp(Instant.now());
+
+        if (settlementSteps.isEmpty()) {
+            embed.setDescription("Everyone is perfectly settled up! No payments are needed.");
+        } else {
+            embed.setDescription(String.join("\n", settlementSteps));
+            embed.setFooter("Please use these instructions to settle all debts for the trip.");
+        }
+
+        Button explanationButton = Button.secondary("settleup-explain", "How is this calculated?")
+                .withEmoji(ArisannaBot.emojiLoadingArisanna);
+
+        return new MessageCreateBuilder()
+                .addEmbeds(embed.build())
+                .addComponents(ActionRow.of(explanationButton))
+                .build();
     }
 
     public static MessageCreateData buildExpenseListPage(int page, String authorId, String targetId) {
