@@ -1,5 +1,7 @@
 package dev.supersand24;
 
+import dev.supersand24.counters.CounterManager;
+import dev.supersand24.expenses.ExpenseManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
@@ -16,8 +18,9 @@ public class ArisannaBot {
 
     public static void main(String[] args) {
 
-        JsonCounterManager.ready(10);
-        
+        CounterManager.ready(10);
+        ExpenseManager.ready(10);
+
         JDABuilder builder = JDABuilder.create(
             System.getenv("ARISANNA_DISCORD_BOT_TOKEN"),
             GatewayIntent.GUILD_MEMBERS,
@@ -77,6 +80,17 @@ public class ArisannaBot {
                             new OptionData(OptionType.STRING, "counter", "Counter to Delete.", true, true)
                         )
                 )
+            .queue();
+
+            ArisannaBot.getAriGuild().upsertCommand("expense", "Modifies Expenses.")
+                    .addSubcommands(
+                            new SubcommandData("add", "Add a new expenses you paid for.")
+                                    .addOptions(
+                                            new OptionData(OptionType.STRING, "name", "What was this expense for?", true),
+                                            new OptionData(OptionType.NUMBER, "amount", "How much did it cost?", true),
+                                            new OptionData(OptionType.MENTIONABLE, "benefactor", "Who benefited from this experience?")
+                                    )
+                    )
             .queue();
 
         } catch (InterruptedException e) {

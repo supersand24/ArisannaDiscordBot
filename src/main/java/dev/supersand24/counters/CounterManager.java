@@ -1,4 +1,4 @@
-package dev.supersand24;
+package dev.supersand24.counters;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
@@ -19,7 +19,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class JsonCounterManager {
+public class CounterManager {
 
     private static final Path filePath = Paths.get("data/counters.json");
     private static final Map<String, CounterData> counters = new ConcurrentHashMap<>();
@@ -27,12 +27,12 @@ public class JsonCounterManager {
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private static volatile boolean dirty = false;
 
-    private static final Logger log = LoggerFactory.getLogger(JsonCounterManager.class);
+    private static final Logger log = LoggerFactory.getLogger(CounterManager.class);
 
     public static void ready(int saveIntervalSeconds) {
         loadCounters();
         scheduleAutoSave(saveIntervalSeconds);
-        Runtime.getRuntime().addShutdownHook(new Thread(JsonCounterManager::forceSave));
+        Runtime.getRuntime().addShutdownHook(new Thread(CounterManager::forceSave));
     }
 
     private static void loadCounters() {
@@ -52,13 +52,28 @@ public class JsonCounterManager {
         }
     }
 
+    public static void saveCounters() {
+        try (Writer writer = Files.newBufferedWriter(filePath)) {
+            gson.toJson(counters, writer);
+            writer.flush();
+            log.info("Saved to " + filePath);
+        } catch (IOException e) {
+            log.error("Failed to save counters: " + e.getMessage());
+        }
+    }
+
     private static void scheduleAutoSave(int intervalSeconds) {
         scheduler.scheduleAtFixedRate(() -> {
             if (dirty) {
-                save();
+                saveCounters();
                 dirty = false;
             }
         }, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+    }
+
+    public static void forceSave() {
+        saveCounters();
+        scheduler.shutdown();
     }
 
     public static void createCounter(String name, String description, int initialValue, int minValue, int maxValue, String userId) {
@@ -173,20 +188,5 @@ public class JsonCounterManager {
 
     public static Set<String> getCounterNames() {
         return counters.keySet();
-    }
-
-    public static void save() {
-        try (Writer writer = Files.newBufferedWriter(filePath)) {
-            gson.toJson(counters, writer);
-            writer.flush();
-            log.info("Saved to " + filePath);
-        } catch (IOException e) {
-            log.error("Failed to save counters: " + e.getMessage());
-        }
-    }
-
-    public static void forceSave() {
-        save();
-        scheduler.shutdown();
     }
 }

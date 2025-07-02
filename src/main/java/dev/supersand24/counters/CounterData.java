@@ -1,4 +1,4 @@
-package dev.supersand24;
+package dev.supersand24.counters;
 
 import java.util.ArrayList;
 import java.util.List;
