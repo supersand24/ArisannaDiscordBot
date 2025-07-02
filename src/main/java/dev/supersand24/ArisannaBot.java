@@ -18,6 +18,7 @@ public class ArisannaBot {
     static JDA jda;
 
     public static Emoji emojiLoadingArisanna;
+    public static Emoji emojiBonkArisanna;
 
     public static void main(String[] args) {
 
@@ -102,7 +103,39 @@ public class ArisannaBot {
                     )
             .queue();
 
+            ArisannaBot.getAriGuild().upsertCommand("payment", "Manage your payment information.")
+                    .addSubcommands(
+                            new SubcommandData("add", "Add one of your payment methods (e.g., PayPal, Venmo).")
+                                    .addOptions(
+                                            new OptionData(OptionType.STRING, "app", "The name of the app (e.g., PayPal).", true)
+                                                    .addChoice("PayPal", "PayPal")
+                                                    .addChoice("Venmo", "Venmo")
+                                                    .addChoice("Cash App", "Cash App")
+                                                    .addChoice("Zelle", "Zelle"),
+                                            new OptionData(OptionType.STRING, "details", "Your username, email, or phone number for the app.", true)
+                                    ),
+                            new SubcommandData("remove", "Remove one of your payment methods.")
+                                    .addOptions(
+                                            new OptionData(OptionType.STRING, "app", "The name of the app to remove (e.g., PayPal).", true)
+                                                    .addChoice("PayPal", "PayPal")
+                                                    .addChoice("Venmo", "Venmo")
+                                                    .addChoice("Cash App", "Cash App")
+                                                    .addChoice("Zelle", "Zelle")
+                                    ),
+                            new SubcommandData("view", "View a user's saved payment methods.")
+                                    .addOption(OptionType.USER, "user", "The user whose payment info you want to see.", true)
+                    )
+            .queue();
+
+            ArisannaBot.getAriGuild().upsertCommand("debt", "Manage outstanding debts from a settlement.")
+                    .addSubcommands(
+                            new SubcommandData("list", "List all outstanding (unpaid) debts."),
+                            new SubcommandData("markpaid", "Mark a debt as paid.")
+                                    .addOption(OptionType.INTEGER, "id", "The ID of the debt to mark as paid.", true)
+                    ).queue();
+
             emojiLoadingArisanna = Emoji.fromCustom("loading_arisanna", 1163570216018653316L, false);
+            emojiBonkArisanna = Emoji.fromCustom("bonk_arisanna", 1163570214147993731L, false);
 
         } catch (InterruptedException e) {
             e.printStackTrace();

@@ -6,6 +6,7 @@ import dev.supersand24.ArisannaBot;
 import dev.supersand24.CurrencyUtils;
 import dev.supersand24.Paginator;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
@@ -86,7 +87,7 @@ public class ExpenseManager {
     }
 
     public static long createExpense(String name, double amount, String payerId) {
-        long newId = dataStore.getAndIncrementNextId();
+        long newId = dataStore.getAndIncrementNextExpenseId();
         ExpenseData expense = new ExpenseData(newId, name, amount, payerId);
         dataStore.getExpenses().put(newId, expense);
 
@@ -191,10 +192,6 @@ public class ExpenseManager {
         }
     }
 
-    public static Collection<ExpenseData> getExpenses() {
-        return dataStore.getExpenses().values();
-    }
-
     public static List<ExpenseData> getExpensesSorted() {
         return dataStore.getExpenses().values().stream()
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
@@ -208,97 +205,154 @@ public class ExpenseManager {
                 .collect(Collectors.toList());
     }
 
-    private static List<String> calculateSettlement() {
+    public static void addPaymentInfo(String userId, String appName, String details) {
+        dataStore.getPaymentDetails().computeIfAbsent(userId, k -> new ArrayList<>())
+                .add(new PaymentInfo(appName, details));
+        dirty = true;
+    }
+
+    public static boolean removePaymentInfo(String userUd, String appName) {
+        List<PaymentInfo> infos = dataStore.getPaymentDetails().get(userUd);
+        if (infos == null) return false;
+        boolean removed = infos.removeIf(info -> info.getAppName().equalsIgnoreCase(appName));
+        if (removed) dirty = true;
+        return removed;
+    }
+
+    public static List<PaymentInfo> getPaymentInfoForUser(String userId) {
+        return dataStore.getPaymentDetails().getOrDefault(userId, Collections.emptyList());
+    }
+
+    public static SettlementResult calculateSettlement() {
+        List<ExpenseData> unsettledExpenses = dataStore.getExpenses().values().stream()
+                .filter(expense -> !expense.isSettled())
+                .toList();
+
+        // Get the count of expenses we're about to process
+        int processedCount = unsettledExpenses.size();
+
+        if (unsettledExpenses.isEmpty())
+            return new SettlementResult(Collections.emptyList(), 0);
+
+        // Step 2: Calculate the net balance for every user.
         Map<String, Double> balances = new HashMap<>();
-
-        if (dataStore.getExpenses().isEmpty()) {
-            return Collections.singletonList("There are no expenses to settle.");
-        }
-
-        for (ExpenseData expense : dataStore.getExpenses().values()) {
+        for (ExpenseData expense : unsettledExpenses) {
             String payerId = expense.payerId;
             double totalAmount = expense.amount;
             List<String> beneficiaries = expense.beneficiaryIds;
 
-            // Skip expenses with no beneficiaries
             if (beneficiaries == null || beneficiaries.isEmpty()) continue;
 
             balances.put(payerId, balances.getOrDefault(payerId, 0.0) + totalAmount);
-
             double share = totalAmount / beneficiaries.size();
-            for (String beneficiaryId : beneficiaries) {
+            for (String beneficiaryId : beneficiaries)
                 balances.put(beneficiaryId, balances.getOrDefault(beneficiaryId, 0.0) - share);
-            }
         }
 
+        // Step 3: Separate users into Debtors (owe money) and Creditors (are owed money).
         List<Map.Entry<String, Double>> creditors = new ArrayList<>();
         List<Map.Entry<String, Double>> debtors = new ArrayList<>();
-
         for (Map.Entry<String, Double> entry : balances.entrySet()) {
-            if (entry.getValue() > 0.01) {
-                creditors.add(entry);
-            } else if (entry.getValue() < -0.01) {
-                debtors.add(entry);
-            }
+            if (entry.getValue() > 0.01) creditors.add(entry);
+            else if (entry.getValue() < -0.01) debtors.add(entry);
         }
 
-        if (debtors.isEmpty() && creditors.isEmpty()) {
-            return Collections.singletonList("Everyone is already settled up!");
+        if (debtors.isEmpty() || creditors.isEmpty()) {
+            unsettledExpenses.forEach(ExpenseData::setSettled);
+            dirty = true;
+            return new SettlementResult(Collections.emptyList(), 0);
         }
 
-        // This algorithm minimizes the number of payments.
-        List<String> transactions = new ArrayList<>();
+        // Step 4: Generate and store new Debt objects via the simplification algorithm.
+        List<Debt> newDebts = new ArrayList<>();
         while (!debtors.isEmpty() && !creditors.isEmpty()) {
             Map.Entry<String, Double> debtorEntry = debtors.getFirst();
             Map.Entry<String, Double> creditorEntry = creditors.getFirst();
+            double transferAmount = Math.min(Math.abs(debtorEntry.getValue()), creditorEntry.getValue());
 
-            String debtorId = debtorEntry.getKey();
-            String creditorId = creditorEntry.getKey();
+            // Create a new persistent Debt object
+            long newDebtId = dataStore.getAndIncrementNextDebtId();
+            Debt newDebt = new Debt(newDebtId, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
 
-            double debtorOwes = Math.abs(debtorEntry.getValue());
-            double creditorIsOwed = creditorEntry.getValue();
+            // Store it in our main data store and add to a temporary list to return
+            dataStore.getDebts().put(newDebtId, newDebt);
+            newDebts.add(newDebt);
 
-            // The amount to transfer is the smaller of the two amounts.
-            double transferAmount = Math.min(debtorOwes, creditorIsOwed);
-
-            // Create the transaction string.
-            transactions.add(
-                    String.format("<@%s> owes <@%s> **%s**",
-                            debtorId,
-                            creditorId,
-                            CurrencyUtils.formatAsUSD(transferAmount)
-                    )
-            );
-
-            // Update the balances in our temporary lists.
+            // Update balances for the next loop iteration
             debtorEntry.setValue(debtorEntry.getValue() + transferAmount);
             creditorEntry.setValue(creditorEntry.getValue() - transferAmount);
 
-            // If a debtor has paid off their entire debt, remove them from the list.
-            if (Math.abs(debtorEntry.getValue()) < 0.01) {
+            // If a debtor's balance is now effectively zero, remove them from the list.
+            if (Math.abs(debtorEntry.getValue()) < 0.01)
                 debtors.removeFirst();
-            }
 
-            // If a creditor has been paid all they are owed, remove them.
-            if (creditorEntry.getValue() < 0.01) {
+            // If a creditor's balance is now effectively zero, remove them from the list.
+            if (creditorEntry.getValue() < 0.01)
                 creditors.removeFirst();
-            }
         }
-        return transactions;
+
+        // Step 5: Mark the processed expenses as settled.
+        for (ExpenseData expense : unsettledExpenses)
+            expense.setSettled();
+
+        // Step 6: Persist all changes and return.
+        dirty = true;
+        return new SettlementResult(newDebts, processedCount);
+    }
+
+    public static List<Debt> getOutstandingDebts() {
+        return dataStore.getDebts().values().stream()
+                .filter(debt -> !debt.isPaid())
+                .sorted(Comparator.comparing(Debt::getDebtId))
+                .collect(Collectors.toList());
+    }
+
+    public static String markDebtAsPaid(long debtId, String actioningUserId) {
+        Debt debt = dataStore.getDebts().get(debtId);
+        if (debt == null) return "This debt doesn't exist in my library!";
+        if (debt.isPaid()) return "You already settled this debt.";
+
+        if (!debt.getCreditorId().equals(actioningUserId)) {
+            return "You aren't (<@" + debt.getCreditorId() + ">)." + ArisannaBot.emojiBonkArisanna;
+        }
+
+        debt.markAsPaid();
+        dirty = true;
+
+        return String.format("Success! Debt #%d (%s owed by <@%s>) has been marked as paid.",
+                debtId, CurrencyUtils.formatAsUSD(debt.getAmount()), debt.getDebtorId());
     }
 
     public static MessageCreateData buildSettlementView() {
-        List<String> settlementSteps = calculateSettlement();
+        SettlementResult result = calculateSettlement();
         EmbedBuilder embed = new EmbedBuilder();
         embed.setColor(Color.GREEN);
         embed.setTitle("Settlement Plan");
         embed.setTimestamp(Instant.now());
 
-        if (settlementSteps.isEmpty()) {
-            embed.setDescription("Everyone is perfectly settled up! No payments are needed.");
+        if (result.newDebts().isEmpty()) {
+            if (result.expensesProcessedCount() > 0) {
+                embed.setDescription("All " + result.expensesProcessedCount() + " unsettled expenses for this event have been calculated and balanced out. No new payments are needed!");
+            } else {
+                embed.setDescription("There were no new expenses to settle for this event.");
+            }
         } else {
-            embed.setDescription(String.join("\n", settlementSteps));
-            embed.setFooter("Please use these instructions to settle all debts for the trip.");
+            if (result.expensesProcessedCount() == 1)
+                embed.setDescription("A new payment plan has been generated. **The 1 expense included in this calculation is now considered settled** and will not be part of future settlements.");
+            else
+                embed.setDescription("A new payment plan has been generated. **The " + result.expensesProcessedCount() + " expenses included in this calculation are now considered settled** and will not be part of future settlements.");
+
+            StringBuilder paymentPlan = new StringBuilder();
+            for(Debt debt : result.newDebts()) {
+                paymentPlan.append(String.format(
+                        "• <@%s> owes <@%s> **%s**\n",
+                        debt.getDebtorId(),
+                        debt.getCreditorId(),
+                        CurrencyUtils.formatAsUSD(debt.getAmount())
+                ));
+            }
+            embed.addField("New Payment Plan", paymentPlan.toString(), false);
+            embed.setFooter("What's next? Use /debt list and /debt markpaid to complete payments.");
         }
 
         Button explanationButton = Button.secondary("settleup-explain", "How is this calculated?")
@@ -381,6 +435,53 @@ public class ExpenseManager {
         return new MessageCreateBuilder()
                 .addEmbeds(embed.build())
                 .addComponents(ActionRow.of(prevButton, nextButton))
+                .build();
+    }
+
+    public static MessageCreateData buildPaymentMethodView(User targetUser) {
+        List<PaymentInfo> paymentInfos = getPaymentInfoForUser(targetUser.getId());
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setAuthor(targetUser.getName() + " Payment Methods", null, targetUser.getEffectiveAvatarUrl());
+        embed.setColor(Color.MAGENTA);
+
+        if (paymentInfos.isEmpty())
+            embed.setDescription(targetUser.getAsMention() + " has not added any payment methods yet.");
+        else {
+            embed.setDescription("Here are their saved payment methods. Use this info to settle up any debts.");
+            for (PaymentInfo info : paymentInfos)
+                embed.addField(info.getAppName(), "`" + info.getDetail() + "`", false);
+        }
+
+        return new MessageCreateBuilder()
+                .addEmbeds(embed.build())
+                .build();
+    }
+
+    public static MessageCreateData buildDebtList() {
+        List<Debt> outstandingDebts = getOutstandingDebts();
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle("Outstanding Debts");
+        embed.setColor(Color.RED);
+        embed.setTimestamp(Instant.now());
+
+        if (outstandingDebts.isEmpty())
+            embed.setDescription("All debts are settled! There are no outstanding payments.");
+        else {
+            StringBuilder description = new StringBuilder("Here is the current list of unpaid debts. The creditor should run `/debt markpaid` once they receive payment.\n\n");
+            for (Debt debt : outstandingDebts) {
+                description.append(String.format(
+                        "• <@%s> owes <@%s> **%s**\n  (ID: `%d`)\n",
+                        debt.getDebtorId(),
+                        debt.getCreditorId(),
+                        CurrencyUtils.formatAsUSD(debt.getAmount()),
+                        debt.getDebtId()
+                ));
+            }
+            embed.setDescription(description.toString());
+        }
+
+        return new MessageCreateBuilder()
+                .addEmbeds(embed.build())
                 .build();
     }
 

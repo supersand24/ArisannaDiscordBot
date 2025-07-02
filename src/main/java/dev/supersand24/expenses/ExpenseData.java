@@ -11,7 +11,9 @@ public class ExpenseData {
     public double amount;
     public String payerId;
     public List<String> beneficiaryIds = new ArrayList<>();
-    public long timestamp;
+    private long timestamp;
+
+    private boolean isSettled = false;
 
     public ExpenseData(long id, String name, double amount, String payerId) {
         this.expenseId = id;
@@ -22,8 +24,8 @@ public class ExpenseData {
         this.timestamp = System.currentTimeMillis();
     }
 
-    public long getTimestamp() {
-        return timestamp;
-    }
+    public long getTimestamp() { return timestamp; }
+    public boolean isSettled() { return isSettled; }
+    public void setSettled() { isSettled = true; }
 
 }

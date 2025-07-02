@@ -7,8 +7,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import dev.supersand24.counters.CounterManager;
+import dev.supersand24.expenses.Debt;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
+import dev.supersand24.expenses.PaymentInfo;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -168,7 +170,7 @@ public class Listener extends ListenerAdapter {
                         }
 
                         if (initialIndex == -1) {
-                            e.getHook().sendMessage("Error: An expense with that ID could not be found.").setEphemeral(true).queue();
+                            e.getHook().sendMessage("This expense doesn't exist in my library!").setEphemeral(true).queue();
                             return;
                         }
 
@@ -187,6 +189,54 @@ public class Listener extends ListenerAdapter {
                         e.deferReply().queue();
                         MessageCreateData messageData = ExpenseManager.buildSettlementView();
                         e.getHook().sendMessage(messageData).queue();
+                    }
+                }
+            }
+            case "payment" -> {
+                switch (e.getSubcommandName()) {
+                    case "add" -> {
+                        String appName = e.getOption("app").getAsString();
+                        String details = e.getOption("details").getAsString();
+                        String userId = e.getUser().getId();
+
+                        ExpenseManager.addPaymentInfo(userId, appName, details);
+
+                        e.reply("Successfully added payment method:\n**" + appName + ":** `" + details + "`")
+                                .setEphemeral(true)
+                                .queue();
+                    }
+                    case "remove" -> {
+                        String appName = e.getOption("app").getAsString();
+                        String userId = e.getUser().getId();
+
+                        boolean wasRemoved = ExpenseManager.removePaymentInfo(userId, appName);
+
+                        if (wasRemoved) {
+                            e.reply("I removed your **" + appName + "** information from my library.").setEphemeral(true).queue();
+                        } else {
+                            e.reply("I could not find your **" + appName + "** information to from my library.").setEphemeral(true).queue();
+                        }
+                    }
+                    case "view" -> {
+                        e.deferReply().queue();
+                        User targetUser = e.getOption("user").getAsUser();
+                        MessageCreateData messageData = ExpenseManager.buildPaymentMethodView(targetUser);
+                        e.getHook().sendMessage(messageData).queue();
+                    }
+                }
+            }
+            case "debt" -> {
+                switch (e.getSubcommandName()) {
+                    case "list" -> {
+                        e.deferReply().queue();
+                        MessageCreateData messageData = ExpenseManager.buildDebtList();
+                        e.getHook().sendMessage(messageData).queue();
+                    }
+                    case "markpaid" -> {
+                        long debtId = e.getOption("id").getAsLong();
+                        String actioningUserId = e.getUser().getId();
+                        String resultMessage = ExpenseManager.markDebtAsPaid(debtId, actioningUserId);
+                        e.reply(resultMessage).setEphemeral(true).queue();
                     }
                 }
             }

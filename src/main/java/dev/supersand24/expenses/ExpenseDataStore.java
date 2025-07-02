@@ -1,22 +1,34 @@
 package dev.supersand24.expenses;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ExpenseDataStore {
 
-    private long nextId = 1;
+    private long nextExpenseId = 1;
 
     private Map<Long, ExpenseData> expenses = new ConcurrentHashMap<>();
 
-    public Map<Long, ExpenseData> getExpenses() {
-        return expenses;
-    }
+    private Map<String, List<PaymentInfo>> paymentDetails = new ConcurrentHashMap<>();
 
-    public long getAndIncrementNextId() {
+    private Map<Long, Debt> debts = new ConcurrentHashMap<>();
+    private long nextDebtId = 1;
+
+    public long getAndIncrementNextExpenseId() {
         synchronized (this) {
-            return nextId++;
+            return nextExpenseId++;
         }
     }
+
+    public long getAndIncrementNextDebtId() {
+        synchronized (this) {
+            return nextDebtId++;
+        }
+    }
+
+    public Map<Long, ExpenseData> getExpenses() { return expenses; }
+    public Map<String, List<PaymentInfo>> getPaymentDetails() { return paymentDetails; }
+    public Map<Long, Debt> getDebts() { return debts; }
 
 }
