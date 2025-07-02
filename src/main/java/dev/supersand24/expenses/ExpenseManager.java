@@ -2,10 +2,8 @@ package dev.supersand24.expenses;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 import dev.supersand24.CurrencyUtils;
 import dev.supersand24.Paginator;
-import dev.supersand24.counters.CounterData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
@@ -16,15 +14,12 @@ import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.io.IOException;
-import java.io.Writer;
-import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +28,7 @@ import java.util.stream.Collectors;
 
 public class ExpenseManager {
 
-    private static Map<String, ExpenseData> expenses = new ConcurrentHashMap<>();
+    private static ExpenseDataStore dataStore;
     private static final Path filePath = Paths.get("data/expenses.json");
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -51,24 +46,25 @@ public class ExpenseManager {
         try {
             if (Files.exists(filePath)) {
                 String json = Files.readString(filePath);
-                Type type = new TypeToken<Map<String, ExpenseData>>() {}.getType();
-                expenses.putAll(gson.fromJson(json, type));
+                dataStore = gson.fromJson(json, ExpenseDataStore.class);
 
-                for (Map.Entry<String, ExpenseData> entry : expenses.entrySet()) {
+                if (dataStore == null) dataStore = new ExpenseDataStore();
+
+                for (Map.Entry<Long, ExpenseData> entry : dataStore.getExpenses().entrySet()) {
                     ExpenseData expenseData = entry.getValue();
                     expenseData.expenseId = entry.getKey();
                 }
             }
         } catch (IOException e) {
             log.error("Failed to load counters: " + e.getMessage());
+            dataStore = new ExpenseDataStore();
         }
     }
 
     public static void saveExpenses() {
-        try (Writer writer = Files.newBufferedWriter(filePath)) {
-            gson.toJson(expenses, writer);
-            writer.flush();
-            log.info("Saved to " + filePath);
+        try {
+            String json = gson.toJson(dataStore);
+            Files.writeString(filePath, json);
         } catch (IOException e) {
             log.error("Failed to save counters: " + e.getMessage());
         }
@@ -88,28 +84,26 @@ public class ExpenseManager {
         scheduler.shutdown();
     }
 
-    public static String getInteractionPrefix() {
-        return "expense-beneficiary-select:";
-    }
+    public static long createExpense(String name, double amount, String payerId) {
+        long newId = dataStore.getAndIncrementNextId();
+        ExpenseData expense = new ExpenseData(newId, name, amount, payerId);
+        dataStore.getExpenses().put(newId, expense);
 
-    public static String createExpense(String name, double amount, String payerId) {
-        ExpenseData expense = new ExpenseData(name, amount, payerId);
-        expenses.put(expense.expenseId, expense);
         saveExpenses();
         return expense.expenseId;
     }
 
-    public static void deleteExpense(String key) {
-        expenses.remove(key);
+    public static void deleteExpense(long key) {
+        dataStore.getExpenses().remove(key);
         dirty = true;
     }
 
-    public static boolean exists(String key) {
-        return expenses.containsKey(key);
+    public static boolean exists(long key) {
+        return dataStore.getExpenses().containsKey(key);
     }
 
-    public static String getName(String key) {
-        ExpenseData expense = expenses.get(key);
+    public static String getName(long key) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             return expense.name;
         } else {
@@ -118,8 +112,8 @@ public class ExpenseManager {
         }
     }
 
-    public static void setAmount(String key, double amount) {
-        ExpenseData expense = expenses.get(key);
+    public static void setAmount(long key, double amount) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             expense.amount = amount;
             dirty = true;
@@ -128,8 +122,8 @@ public class ExpenseManager {
         }
     }
 
-    public static double getAmount(String key) {
-        ExpenseData expense = expenses.get(key);
+    public static double getAmount(long key) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             return expense.amount;
         } else {
@@ -138,8 +132,8 @@ public class ExpenseManager {
         }
     }
 
-    public static boolean isBenefitingFromExpense(String key, String userId) {
-        ExpenseData expense = expenses.get(key);
+    public static boolean isBenefitingFromExpense(long key, String userId) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             return expense.beneficiaryIds.contains(userId);
         } else {
@@ -148,8 +142,8 @@ public class ExpenseManager {
         }
     }
 
-    public static void addBenefactor(String key, String benefactorId) {
-        ExpenseData expense = expenses.get(key);
+    public static void addBenefactor(long key, String benefactorId) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             expense.beneficiaryIds.add(benefactorId);
             dirty = true;
@@ -158,8 +152,8 @@ public class ExpenseManager {
         }
     }
 
-    public static void addBenefactors(String key, List<String> benefactorIds) {
-        ExpenseData expense = expenses.get(key);
+    public static void addBenefactors(long key, List<String> benefactorIds) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             for (String id : benefactorIds) {
                 if (!expense.beneficiaryIds.contains(id)) {
@@ -172,8 +166,8 @@ public class ExpenseManager {
         }
     }
 
-    public static void removeBenefactor(String key, String benefactorId) {
-        ExpenseData expense = expenses.get(key);
+    public static void removeBenefactor(long key, String benefactorId) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             expense.beneficiaryIds.remove(benefactorId);
             dirty = true;
@@ -182,8 +176,8 @@ public class ExpenseManager {
         }
     }
 
-    public static void removeBenefactors(String key, List<String> benefactorIds) {
-        ExpenseData expense = expenses.get(key);
+    public static void removeBenefactors(long key, List<String> benefactorIds) {
+        ExpenseData expense = dataStore.getExpenses().get(key);
         if (expense != null) {
             for (String id : benefactorIds) {
                 if (expense.beneficiaryIds.contains(id)) {
@@ -197,17 +191,17 @@ public class ExpenseManager {
     }
 
     public static Collection<ExpenseData> getExpenses() {
-        return expenses.values();
+        return dataStore.getExpenses().values();
     }
 
     public static List<ExpenseData> getExpensesSorted() {
-        return expenses.values().stream()
+        return dataStore.getExpenses().values().stream()
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
 
     public static List<ExpenseData> getExpensesForUserSorted(String userId) {
-        return expenses.values().stream()
+        return dataStore.getExpenses().values().stream()
                 .filter(exp -> exp.payerId.equals(userId) || exp.beneficiaryIds.contains(userId))
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
@@ -216,11 +210,11 @@ public class ExpenseManager {
     public static List<String> calculateSettlement() {
         Map<String, Double> balances = new HashMap<>();
 
-        if (expenses.isEmpty()) {
+        if (dataStore.getExpenses().isEmpty()) {
             return Collections.singletonList("There are no expenses to settle.");
         }
 
-        for (ExpenseData expense : expenses.values()) {
+        for (ExpenseData expense : dataStore.getExpenses().values()) {
             String payerId = expense.payerId;
             double totalAmount = expense.amount;
             List<String> beneficiaries = expense.beneficiaryIds;

@@ -92,9 +92,9 @@ public class ArisannaBot {
                             new SubcommandData("list", "List expenses.")
                                     .addOption(OptionType.USER, "user", "Filter expenses involving a specific user."),
                             new SubcommandData("view", "View the details of a single expense.")
-                                    .addOption(OptionType.STRING, "id", "The ID of the expense to view."),
+                                    .addOption(OptionType.INTEGER, "id", "The ID of the expense to view.", true),
                             new SubcommandData("remove", "Remove an expense you added.")
-                                    .addOption(OptionType.STRING, "id", "The ID of the expense to remove.", true),
+                                    .addOption(OptionType.INTEGER, "id", "The ID of the expense to remove.", true),
                             new SubcommandData("settleup", "Calculate who owes who to settle all debts.")
                     )
             .queue();

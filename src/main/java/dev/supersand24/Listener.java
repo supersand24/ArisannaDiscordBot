@@ -140,7 +140,7 @@ public class Listener extends ListenerAdapter {
                         String optionName = e.getOption("name").getAsString();
                         double optionAmount = e.getOption("amount").getAsDouble();
 
-                        String expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId());
+                        long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId());
 
                         e.reply("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense.\nChoose who benefited from " + optionName + ".")
                                 .addActionRow(
@@ -154,31 +154,26 @@ public class Listener extends ListenerAdapter {
                         e.reply("coming soon.").setEphemeral(true).queue();
                     }
                     case "view" -> {
-                        String expenseId = e.getOption("id") != null ? e.getOption("id").getAsString() : "";
+                        long expenseId = e.getOption("id") != null ? e.getOption("id").getAsLong() : -1;
                         e.deferReply().queue();
 
-                        if (expenseId.isEmpty()) {
-                            MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(0, e.getUser().getId());
-                            e.getHook().sendMessage(messageData).queue();
-                        } else {
-                            List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted();
-                            int initialIndex = -1;
+                        List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted();
+                        int initialIndex = -1;
 
-                            for (int i = 0; i < sortedExpenses.size(); i++) {
-                                if (sortedExpenses.get(i).expenseId.equals(expenseId)) {
-                                    initialIndex = i;
-                                    break;
-                                }
+                        for (int i = 0; i < sortedExpenses.size(); i++) {
+                            if (sortedExpenses.get(i).expenseId == expenseId) {
+                                initialIndex = i;
+                                break;
                             }
-
-                            if (initialIndex == -1) {
-                                e.getHook().sendMessage("Error: An expense with that ID could not be found.").setEphemeral(true).queue();
-                                return;
-                            }
-
-                            MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(0, e.getUser().getId());
-                            e.getHook().sendMessage(messageData).queue();
                         }
+
+                        if (initialIndex == -1) {
+                            e.getHook().sendMessage("Error: An expense with that ID could not be found.").setEphemeral(true).queue();
+                            return;
+                        }
+
+                        MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(initialIndex, e.getUser().getId());
+                        e.getHook().sendMessage(messageData).queue();
                     }
                     case "list" -> {
                         e.deferReply().queue();
@@ -214,8 +209,13 @@ public class Listener extends ListenerAdapter {
 
     @Override
     public void onEntitySelectInteraction(EntitySelectInteractionEvent e) {
-        if (e.getComponentId().startsWith(ExpenseManager.getInteractionPrefix())) {
-            String expenseId = e.getComponentId().substring(ExpenseManager.getInteractionPrefix().length());
+        log.info(e.getComponentId() + " was interacted with.");
+
+        String[] parts = e.getComponentId().split(":");
+        String prefix = parts[0];
+
+        if (prefix.equals("expense-beneficiary-select")) {
+            long expenseId = Long.parseLong(parts[1]);
 
             if (!ExpenseManager.exists(expenseId)) {
                 log.error("Could not find expense: " + expenseId);
