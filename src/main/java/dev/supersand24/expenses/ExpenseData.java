@@ -18,6 +18,11 @@ public class ExpenseData {
         this.name = name;
         this.amount = amount;
         this.payerId = payerId;
+        this.timestamp = System.currentTimeMillis();
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 
 }

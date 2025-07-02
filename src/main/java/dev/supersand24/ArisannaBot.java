@@ -84,12 +84,18 @@ public class ArisannaBot {
 
             ArisannaBot.getAriGuild().upsertCommand("expense", "Modifies Expenses.")
                     .addSubcommands(
-                            new SubcommandData("add", "Add a new expenses you paid for.")
+                            new SubcommandData("add", "Add a new expense you paid for.")
                                     .addOptions(
                                             new OptionData(OptionType.STRING, "name", "What was this expense for?", true),
-                                            new OptionData(OptionType.NUMBER, "amount", "How much did it cost?", true),
-                                            new OptionData(OptionType.MENTIONABLE, "benefactor", "Who benefited from this experience?")
-                                    )
+                                            new OptionData(OptionType.NUMBER, "amount", "How much did it cost?", true)
+                                    ),
+                            new SubcommandData("list", "List expenses.")
+                                    .addOption(OptionType.USER, "user", "Filter expenses involving a specific user."),
+                            new SubcommandData("view", "View the details of a single expense.")
+                                    .addOption(OptionType.STRING, "id", "The ID of the expense to view."),
+                            new SubcommandData("remove", "Remove an expense you added.")
+                                    .addOption(OptionType.STRING, "id", "The ID of the expense to remove.", true),
+                            new SubcommandData("settleup", "Calculate who owes who to settle all debts.")
                     )
             .queue();
 

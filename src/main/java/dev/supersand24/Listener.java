@@ -1,21 +1,22 @@
 package dev.supersand24;
 
-import java.nio.channels.Channel;
+import java.awt.*;
+import java.time.Instant;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import dev.supersand24.counters.CounterManager;
+import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.IMentionable;
-import net.dv8tion.jda.api.entities.channel.ChannelType;
-import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.Component;
+import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
-import net.dv8tion.jda.api.interactions.components.text.TextInput;
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,17 +134,80 @@ public class Listener extends ListenerAdapter {
                 }
             }
             case "expense" -> {
-                String optionName = e.getOption("name").getAsString();
-                double optionAmount = e.getOption("amount").getAsDouble();
 
-                String expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId());
+                switch (e.getSubcommandName()) {
+                    case "add" -> {
+                        String optionName = e.getOption("name").getAsString();
+                        double optionAmount = e.getOption("amount").getAsDouble();
 
-                e.reply("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense.\nChoose who benefited from " + optionName + ".")
-                        .addActionRow(
-                                EntitySelectMenu.create("expense-beneficiary-select:" + expenseId, EntitySelectMenu.SelectTarget.USER)
-                                        .setMaxValues(20)
-                                        .build()
-                        ).setEphemeral(true).queue();
+                        String expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId());
+
+                        e.reply("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense.\nChoose who benefited from " + optionName + ".")
+                                .addActionRow(
+                                        EntitySelectMenu.create("expense-beneficiary-select:" + expenseId, EntitySelectMenu.SelectTarget.USER)
+                                                .setDefaultValues(EntitySelectMenu.DefaultValue.user(e.getUser().getId()))
+                                                .setMaxValues(20)
+                                                .build()
+                                ).setEphemeral(true).queue();
+                    }
+                    case "remove" -> {
+                        e.reply("coming soon.").setEphemeral(true).queue();
+                    }
+                    case "view" -> {
+                        String expenseId = e.getOption("id") != null ? e.getOption("id").getAsString() : "";
+                        e.deferReply().queue();
+
+                        if (expenseId.isEmpty()) {
+                            MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(0, e.getUser().getId());
+                            e.getHook().sendMessage(messageData).queue();
+                        } else {
+                            List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted();
+                            int initialIndex = -1;
+
+                            for (int i = 0; i < sortedExpenses.size(); i++) {
+                                if (sortedExpenses.get(i).expenseId.equals(expenseId)) {
+                                    initialIndex = i;
+                                    break;
+                                }
+                            }
+
+                            if (initialIndex == -1) {
+                                e.getHook().sendMessage("Error: An expense with that ID could not be found.").setEphemeral(true).queue();
+                                return;
+                            }
+
+                            MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(0, e.getUser().getId());
+                            e.getHook().sendMessage(messageData).queue();
+                        }
+                    }
+                    case "list" -> {
+                        e.deferReply().queue();
+                        User userFilter = e.getOption("user") != null ? e.getOption("user").getAsUser() : null;
+                        String targetId = (userFilter == null) ? "all" : userFilter.getId();
+
+                        MessageCreateData messageData = ExpenseManager.buildExpenseListPage(0, e.getUser().getId(), targetId);
+                        e.getHook().sendMessage(messageData).queue();
+                    }
+                    case "settleup" -> {
+                        e.deferReply().queue();
+
+                        List<String> settlementSteps = ExpenseManager.calculateSettlement();
+
+                        EmbedBuilder embed = new EmbedBuilder();
+                        embed.setColor(Color.GREEN);
+                        embed.setTitle("Settlement Plan");
+                        embed.setTimestamp(Instant.now());
+
+                        if (settlementSteps.isEmpty()) {
+                            embed.setDescription("Everyone is perfectly settled up! No payments are needed.");
+                        } else {
+                            embed.setDescription(String.join("\n", settlementSteps));
+                            embed.setFooter("Please use these instructions to settle all debts for the trip.");
+                        }
+
+                        e.getHook().sendMessageEmbeds(embed.build()).queue();
+                    }
+                }
             }
         }
     }
@@ -170,6 +234,52 @@ public class Listener extends ListenerAdapter {
             } else {
                 e.reply("Added " + beneficiaryIds.size() + " people to " + ExpenseManager.getName(expenseId) + " expense.").setEphemeral(true).queue();
             }
+        }
+    }
+
+    @Override
+    public void onButtonInteraction(ButtonInteractionEvent e) {
+        log.info(e.getComponentId() + " was pressed.");
+
+        String[] parts = e.getComponentId().split(":");
+        String prefix = parts[0];
+
+        if (prefix.startsWith("expense-list-")) {
+            String authorId = parts[1];
+            String expenseId = parts[2];
+            int currentPage = Integer.parseInt(parts[3]);
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            e.deferEdit().queue();
+            int newPage = prefix.endsWith("-next") ? currentPage + 1 : currentPage - 1;
+
+            MessageCreateData messageData = ExpenseManager.buildExpenseListPage(newPage, authorId, expenseId);
+            e.getHook().editOriginalEmbeds(messageData.getEmbeds())
+                    .setComponents(messageData.getComponents())
+                    .queue();
+
+        } else if (prefix.startsWith("expense-view-")) {
+            String authorId = parts[1];
+            int currentIndex = Integer.parseInt(parts[2]);
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            e.deferEdit().queue();
+            int newIndex = prefix.endsWith("-next") ? currentIndex + 1 : currentIndex - 1;
+
+            MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(newIndex, authorId);
+            e.getHook().editOriginalEmbeds(messageData.getEmbeds())
+                    .setComponents(messageData.getComponents())
+                    .queue();
+
+
         }
     }
 
