@@ -1,10 +1,11 @@
 package dev.supersand24.expenses;
 
+import dev.supersand24.Identifiable;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
-public class ExpenseData {
+public class ExpenseData implements Identifiable {
 
     public transient long expenseId;
     public String name;
@@ -28,4 +29,8 @@ public class ExpenseData {
     public boolean isSettled() { return isSettled; }
     public void setSettled() { isSettled = true; }
 
+    @Override
+    public void setId(long id) {
+        expenseId = id;
+    }
 }

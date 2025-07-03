@@ -1,7 +1,11 @@
 package dev.supersand24;
 
-import dev.supersand24.counters.CounterManager;
+import com.google.gson.reflect.TypeToken;
+import dev.supersand24.counters.CounterData;
+import dev.supersand24.expenses.Debt;
+import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
+import dev.supersand24.expenses.PaymentInfo;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
@@ -13,6 +17,9 @@ import net.dv8tion.jda.api.interactions.commands.build.SubcommandGroupData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class ArisannaBot {
 
     static JDA jda;
@@ -22,8 +29,33 @@ public class ArisannaBot {
 
     public static void main(String[] args) {
 
-        CounterManager.ready(10);
-        ExpenseManager.ready(10);
+        DataStore.register(
+                "counters",
+                "counters.json",
+                new TypeToken<ConcurrentHashMap<String, CounterData>>() {}.getType(),
+                ConcurrentHashMap::new
+        );
+        DataStore.register(
+                "paymentMethods",
+                "paymentMethods.json",
+                new TypeToken<ConcurrentHashMap<String, List<PaymentInfo>>>() {}.getType(),
+                ConcurrentHashMap::new
+        );
+
+        DataStore.register(
+                "expenses",
+                "expenses.json",
+                new TypeToken<DataPartition<ExpenseData>>() {}.getType(),
+                DataPartition::new
+        );
+        DataStore.register(
+                "debts",
+                "debts.json",
+                new TypeToken<DataPartition<Debt>>() {}.getType(),
+                DataPartition::new
+        );
+
+        DataStore.initialize(10);
 
         JDABuilder builder = JDABuilder.create(
             System.getenv("ARISANNA_DISCORD_BOT_TOKEN"),

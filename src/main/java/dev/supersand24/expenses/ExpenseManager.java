@@ -1,10 +1,6 @@
 package dev.supersand24.expenses;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import dev.supersand24.ArisannaBot;
-import dev.supersand24.CurrencyUtils;
-import dev.supersand24.Paginator;
+import dev.supersand24.*;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
@@ -15,97 +11,47 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ExpenseManager {
 
-    private static ExpenseDataStore dataStore;
-    private static final Path filePath = Paths.get("data/expenses.json");
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private static volatile boolean dirty = false;
-
     private static final Logger log = LoggerFactory.getLogger(ExpenseManager.class);
 
-    public static void ready(int saveIntervalSeconds) {
-        loadExpenses();
-        scheduleAutoSave(saveIntervalSeconds);
-        Runtime.getRuntime().addShutdownHook(new Thread(ExpenseManager::forceSave));
+    private static Map<Long, ExpenseData> getExpensesMap() {
+        DataPartition<ExpenseData> expenses = DataStore.get("expenses");
+        return expenses.getData();
     }
 
-    public static void loadExpenses() {
-        try {
-            if (Files.exists(filePath)) {
-                String json = Files.readString(filePath);
-                dataStore = gson.fromJson(json, ExpenseDataStore.class);
-
-                if (dataStore == null) dataStore = new ExpenseDataStore();
-
-                for (Map.Entry<Long, ExpenseData> entry : dataStore.getExpenses().entrySet()) {
-                    ExpenseData expenseData = entry.getValue();
-                    expenseData.expenseId = entry.getKey();
-                }
-            }
-        } catch (IOException e) {
-            log.error("Failed to load counters: " + e.getMessage());
-            dataStore = new ExpenseDataStore();
-        }
-    }
-
-    public static void saveExpenses() {
-        try {
-            String json = gson.toJson(dataStore);
-            Files.writeString(filePath, json);
-        } catch (IOException e) {
-            log.error("Failed to save counters: " + e.getMessage());
-        }
-    }
-
-    private static void scheduleAutoSave(int intervalSeconds) {
-        scheduler.scheduleAtFixedRate(() -> {
-            if (dirty) {
-                saveExpenses();
-                dirty = false;
-            }
-        }, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
-    }
-
-    public static void forceSave() {
-        saveExpenses();
-        scheduler.shutdown();
+    private static Map<Long, Debt> getDebtMap() {
+        DataPartition<Debt> debts = DataStore.get("debts");
+        return debts.getData();
     }
 
     public static long createExpense(String name, double amount, String payerId) {
-        long newId = dataStore.getAndIncrementNextExpenseId();
+        DataPartition<ExpenseData> expensesHashMap = DataStore.get("expenses");
+        long newId = expensesHashMap.getAndIncrementId();
+        Map<Long, ExpenseData> expenses = expensesHashMap.getData();
         ExpenseData expense = new ExpenseData(newId, name, amount, payerId);
-        dataStore.getExpenses().put(newId, expense);
-
-        saveExpenses();
+        expenses.put(newId, expense);
+        DataStore.markDirty("expenses");
         return expense.expenseId;
     }
 
     public static void deleteExpense(long key) {
-        dataStore.getExpenses().remove(key);
-        dirty = true;
+        getExpensesMap().remove(key);
+        DataStore.markDirty("expenses");
     }
 
     public static boolean exists(long key) {
-        return dataStore.getExpenses().containsKey(key);
+        return getExpensesMap().containsKey(key);
     }
 
     public static String getName(long key) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             return expense.name;
         } else {
@@ -115,17 +61,17 @@ public class ExpenseManager {
     }
 
     public static void setAmount(long key, double amount) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             expense.amount = amount;
-            dirty = true;
+            DataStore.markDirty("expenses");
         } else {
             log.error("Expense " + key + " does not exist.");
         }
     }
 
     public static double getAmount(long key) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             return expense.amount;
         } else {
@@ -135,7 +81,7 @@ public class ExpenseManager {
     }
 
     public static boolean isBenefitingFromExpense(long key, String userId) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             return expense.beneficiaryIds.contains(userId);
         } else {
@@ -145,22 +91,22 @@ public class ExpenseManager {
     }
 
     public static void addBenefactor(long key, String benefactorId) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             expense.beneficiaryIds.add(benefactorId);
-            dirty = true;
+            DataStore.markDirty("expenses");
         } else {
             log.error("Expense " + key + " does not exist.");
         }
     }
 
     public static void addBenefactors(long key, List<String> benefactorIds) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             for (String id : benefactorIds) {
                 if (!expense.beneficiaryIds.contains(id)) {
                     expense.beneficiaryIds.add(id);
-                    dirty = true;
+                    DataStore.markDirty("expenses");
                 }
             }
         } else {
@@ -169,22 +115,22 @@ public class ExpenseManager {
     }
 
     public static void removeBenefactor(long key, String benefactorId) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             expense.beneficiaryIds.remove(benefactorId);
-            dirty = true;
+            DataStore.markDirty("expenses");
         } else {
             log.error("Expense " + key + " does not exist.");
         }
     }
 
     public static void removeBenefactors(long key, List<String> benefactorIds) {
-        ExpenseData expense = dataStore.getExpenses().get(key);
+        ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             for (String id : benefactorIds) {
                 if (expense.beneficiaryIds.contains(id)) {
                     expense.beneficiaryIds.remove(id);
-                    dirty = true;
+                    DataStore.markDirty("expenses");
                 }
             }
         } else {
@@ -193,38 +139,40 @@ public class ExpenseManager {
     }
 
     public static List<ExpenseData> getExpensesSorted() {
-        return dataStore.getExpenses().values().stream()
+        return getExpensesMap().values().stream()
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
 
     public static List<ExpenseData> getExpensesForUserSorted(String userId) {
-        return dataStore.getExpenses().values().stream()
+        return getExpensesMap().values().stream()
                 .filter(exp -> exp.payerId.equals(userId) || exp.beneficiaryIds.contains(userId))
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
 
     public static void addPaymentInfo(String userId, String appName, String details) {
-        dataStore.getPaymentDetails().computeIfAbsent(userId, k -> new ArrayList<>())
+        Map<String, List<PaymentInfo>> paymentMethods = DataStore.get("paymentMethods");
+        paymentMethods.computeIfAbsent(userId, k -> new ArrayList<>())
                 .add(new PaymentInfo(appName, details));
-        dirty = true;
+        DataStore.markDirty("paymentMethods");
     }
 
-    public static boolean removePaymentInfo(String userUd, String appName) {
-        List<PaymentInfo> infos = dataStore.getPaymentDetails().get(userUd);
+    public static boolean removePaymentInfo(String userId, String appName) {
+        List<PaymentInfo> infos = getPaymentInfoForUser(userId);
         if (infos == null) return false;
         boolean removed = infos.removeIf(info -> info.getAppName().equalsIgnoreCase(appName));
-        if (removed) dirty = true;
+        if (removed) DataStore.markDirty("paymentMethods");
         return removed;
     }
 
     public static List<PaymentInfo> getPaymentInfoForUser(String userId) {
-        return dataStore.getPaymentDetails().getOrDefault(userId, Collections.emptyList());
+        Map<String, List<PaymentInfo>> paymentMethods = DataStore.get("paymentMethods");
+        return paymentMethods.getOrDefault(userId, Collections.emptyList());
     }
 
     public static SettlementResult calculateSettlement() {
-        List<ExpenseData> unsettledExpenses = dataStore.getExpenses().values().stream()
+        List<ExpenseData> unsettledExpenses = getExpensesMap().values().stream()
                 .filter(expense -> !expense.isSettled())
                 .toList();
 
@@ -259,7 +207,7 @@ public class ExpenseManager {
 
         if (debtors.isEmpty() || creditors.isEmpty()) {
             unsettledExpenses.forEach(ExpenseData::setSettled);
-            dirty = true;
+            DataStore.markDirty("expenses");
             return new SettlementResult(Collections.emptyList(), 0);
         }
 
@@ -271,11 +219,13 @@ public class ExpenseManager {
             double transferAmount = Math.min(Math.abs(debtorEntry.getValue()), creditorEntry.getValue());
 
             // Create a new persistent Debt object
-            long newDebtId = dataStore.getAndIncrementNextDebtId();
+
+            DataPartition<Debt> debtsHashMap = DataStore.get("debts");
+            long newDebtId = debtsHashMap.getAndIncrementId();
             Debt newDebt = new Debt(newDebtId, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
 
             // Store it in our main data store and add to a temporary list to return
-            dataStore.getDebts().put(newDebtId, newDebt);
+            debtsHashMap.getData().put(newDebtId, newDebt);
             newDebts.add(newDebt);
 
             // Update balances for the next loop iteration
@@ -296,19 +246,19 @@ public class ExpenseManager {
             expense.setSettled();
 
         // Step 6: Persist all changes and return.
-        dirty = true;
+        DataStore.markDirty("debts");
         return new SettlementResult(newDebts, processedCount);
     }
 
     public static List<Debt> getOutstandingDebts() {
-        return dataStore.getDebts().values().stream()
+        return getDebtMap().values().stream()
                 .filter(debt -> !debt.isPaid())
                 .sorted(Comparator.comparing(Debt::getDebtId))
                 .collect(Collectors.toList());
     }
 
     public static String markDebtAsPaid(long debtId, String actioningUserId) {
-        Debt debt = dataStore.getDebts().get(debtId);
+        Debt debt = getDebtMap().get(debtId);
         if (debt == null) return "This debt doesn't exist in my library!";
         if (debt.isPaid()) return "You already settled this debt.";
 
@@ -317,7 +267,7 @@ public class ExpenseManager {
         }
 
         debt.markAsPaid();
-        dirty = true;
+        DataStore.markDirty("debts");
 
         return String.format("Success! Debt #%d (%s owed by <@%s>) has been marked as paid.",
                 debtId, CurrencyUtils.formatAsUSD(debt.getAmount()), debt.getDebtorId());

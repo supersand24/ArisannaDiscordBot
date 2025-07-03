@@ -1,8 +1,10 @@
 package dev.supersand24.expenses;
 
-public class Debt {
+import dev.supersand24.Identifiable;
 
-    private final long debtId;
+public class Debt implements Identifiable {
+
+    private transient long debtId;
     private final String debtorId;
     private final String creditorId;
     private final double amount;
@@ -26,4 +28,8 @@ public class Debt {
         this.isPaid = true;
     }
 
+    @Override
+    public void setId(long id) {
+        debtId = id;
+    }
 }
