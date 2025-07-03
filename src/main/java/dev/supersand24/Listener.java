@@ -1,28 +1,26 @@
 package dev.supersand24;
 
 import java.awt.*;
-import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import dev.supersand24.counters.CounterManager;
-import dev.supersand24.expenses.Debt;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
-import dev.supersand24.expenses.PaymentInfo;
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
-import net.dv8tion.jda.api.interactions.InteractionHook;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
@@ -32,6 +30,13 @@ import net.dv8tion.jda.api.interactions.commands.Command;
 public class Listener extends ListenerAdapter {
 
     private final Logger log = LoggerFactory.getLogger(Listener.class);
+
+    private final Map<String, Long> SELF_ASSIGNABLE_ROLES = Map.of(
+            "ascent-boston", 1357375256498802900L,
+            "ascent-niagara-falls", 1389686731565174884L,
+            "ascent-los-angeles", 1389686814813720647L,
+            "ascent-las-vegas", 1389686984431239319L
+    );
 
     @Override
     public void onReady(ReadyEvent ev) {
@@ -240,7 +245,100 @@ public class Listener extends ListenerAdapter {
                     }
                 }
             }
+            case "roles" -> {
+
+                StringSelectMenu.Builder menu = StringSelectMenu.create("role-select-menu")
+                        .setPlaceholder("Select the roles you want...")
+                        .setRequiredRange(0, SELF_ASSIGNABLE_ROLES.size());
+
+                menu.addOption("Ascent Boston", "ascent-boston", "For going to Ascent Boston");
+                menu.addOption("Ascent Niagara Falls", "ascent-niagara-falls", "For going to Ascent Niagara Falls");
+                menu.addOption("Ascent Los Angeles", "ascent-los-angeles", "For going to Ascent Los Angeles");
+                menu.addOption("Ascent Las Vegas", "ascent-las-vegas", "For going to Ascent Las Vegas");
+
+                EmbedBuilder embed = new EmbedBuilder();
+                embed.setTitle("Role Selection");
+                embed.setDescription("Select any roles you'd like to receive from the dropdown menu below. Selecting a role you already have will remove it.");
+                embed.setColor(Color.PINK);
+
+                e.reply("Sending Role Selection now!").setEphemeral(true).queue();
+
+                e.getChannel().sendMessageEmbeds(embed.build())
+                        .addActionRow(menu.build())
+                        .queue();
+
+            }
         }
+    }
+
+    @Override
+    public void onStringSelectInteraction(StringSelectInteractionEvent e) {
+        if (!e.getComponentId().equals("role-select-menu")) {
+            return;
+        }
+
+        Member member = e.getMember();
+        Guild guild = e.getGuild();
+        if (member == null || guild == null) return;
+
+        e.deferReply(true).queue();
+
+        List<Role> currentMemberRoles = member.getRoles();
+        List<String> selectedRoleValues = e.getValues();
+
+        List<Role> allPossibleRoles = SELF_ASSIGNABLE_ROLES.values().stream()
+                .map(guild::getRoleById)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        List<Role> rolesToAdd = new ArrayList<>();
+        List<Role> rolesToRemove = new ArrayList<>();
+
+        for (Role role : allPossibleRoles) {
+            boolean wasSelected = selectedRoleValues.contains(getRoleKey(role.getIdLong()));
+            boolean hasRole = currentMemberRoles.contains(role);
+
+            if (wasSelected != hasRole && !guild.getSelfMember().canInteract(role)) {
+                e.getHook().sendMessage("I don't have permissions to manage the `" + role.getName() + "` role. Please contact an admin to check my role position.").setEphemeral(true).queue();
+                return;
+            }
+
+            if (wasSelected && !hasRole) {
+                rolesToAdd.add(role);
+            } else if (!wasSelected && hasRole) {
+                rolesToRemove.add(role);
+            }
+
+        }
+
+        if (rolesToAdd.isEmpty() && rolesToRemove.isEmpty()) {
+            e.getHook().sendMessage("Your roles have not changed").setEphemeral(true).queue();
+            return;
+        }
+
+        guild.modifyMemberRoles(member, rolesToAdd, rolesToRemove).queue(
+                success -> {
+                    StringBuilder response = new StringBuilder("I updated your roles!\n");
+                    if (!rolesToAdd.isEmpty()) {
+                        response.append(rolesToAdd.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was added.\n");
+                    }
+                    if (!rolesToRemove.isEmpty()) {
+                        response.append(rolesToRemove.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was removed.");
+                    }
+                    e.getHook().sendMessage(response.toString()).setEphemeral(true).queue();
+                },
+                error -> {
+                    e.getHook().sendMessage("I was unable to update your roles!").setEphemeral(true).queue();
+                }
+        );
+    }
+
+    private String getRoleKey(long roleId) {
+        return SELF_ASSIGNABLE_ROLES.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(roleId))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
     }
 
     @Override

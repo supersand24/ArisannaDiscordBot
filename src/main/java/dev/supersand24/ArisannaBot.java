@@ -134,6 +134,8 @@ public class ArisannaBot {
                                     .addOption(OptionType.INTEGER, "id", "The ID of the debt to mark as paid.", true)
                     ).queue();
 
+            ArisannaBot.getAriGuild().upsertCommand("roles", "Commands for managing roles").queue();
+
             emojiLoadingArisanna = Emoji.fromCustom("loading_arisanna", 1163570216018653316L, false);
             emojiBonkArisanna = Emoji.fromCustom("bonk_arisanna", 1163570214147993731L, false);
 
