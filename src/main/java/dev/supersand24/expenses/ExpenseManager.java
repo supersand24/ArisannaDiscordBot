@@ -2,9 +2,11 @@ package dev.supersand24.expenses;
 
 import dev.supersand24.*;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -31,11 +33,11 @@ public class ExpenseManager {
         return debts.getData();
     }
 
-    public static long createExpense(String name, double amount, String payerId) {
+    public static long createExpense(String name, double amount, String payerId, long eventId) {
         DataPartition<ExpenseData> expensesHashMap = DataStore.get("expenses");
         long newId = expensesHashMap.getAndIncrementId();
         Map<Long, ExpenseData> expenses = expensesHashMap.getData();
-        ExpenseData expense = new ExpenseData(newId, name, amount, payerId);
+        ExpenseData expense = new ExpenseData(newId, eventId, name, amount, payerId);
         expenses.put(newId, expense);
         DataStore.markDirty("expenses");
         return expense.expenseId;
@@ -222,7 +224,7 @@ public class ExpenseManager {
 
             DataPartition<Debt> debtsHashMap = DataStore.get("debts");
             long newDebtId = debtsHashMap.getAndIncrementId();
-            Debt newDebt = new Debt(newDebtId, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
+            Debt newDebt = new Debt(newDebtId, 0, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
 
             // Store it in our main data store and add to a temporary list to return
             debtsHashMap.getData().put(newDebtId, newDebt);
@@ -336,12 +338,9 @@ public class ExpenseManager {
         EmbedBuilder embed = paginator.getEmbed(page, itemsPerPage, "Expense List", Color.CYAN, formatter);
         int totalPages = paginator.getTotalPages(itemsPerPage);
 
-        Button prevButton = Button.secondary("expense-list-prev:" + authorId + ":" + targetId + ":" + page, "◀️").withDisabled(page == 0);
-        Button nextButton = Button.secondary("expense-list-next:" + authorId + ":" + targetId + ":" + page, "▶️").withDisabled(page >= totalPages - 1);
-
         return new MessageCreateBuilder()
                 .addEmbeds(embed.build())
-                .addComponents(ActionRow.of(prevButton, nextButton))
+                .addComponents(buildExpenseListActionRow(expenses, authorId, page))
                 .build();
     }
 
@@ -433,6 +432,158 @@ public class ExpenseManager {
         return new MessageCreateBuilder()
                 .addEmbeds(embed.build())
                 .build();
+    }
+
+    //New Methods
+
+    public static MessageCreateData editExpenseListView(String authorId, int page) {
+        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted();
+        return new MessageCreateBuilder()
+                .addEmbeds(createExpenseListEmbed(expenses, page).build())
+                .setComponents(buildExpenseListActionRow(expenses, authorId, page))
+                .build();
+    }
+
+    public static MessageCreateData editDebtListView(String authorId, int page) {
+        List<Debt> debts = ExpenseManager.getOutstandingDebts();
+        return new MessageCreateBuilder()
+                .addEmbeds(createDebtListEmbed(debts, page).build())
+                .setComponents(buildDebtListActionRow(debts, authorId, page))
+                .build();
+    }
+
+    public static MessageCreateData editExpenseDetailView(String authorId, int index) {
+        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted();
+        ExpenseData expense = expenses.get(index);
+        EmbedBuilder embed = expense.createEmbed()
+                .setFooter("Displaying expense " + (index + 1) + " of " + expenses.size());
+        return new MessageCreateBuilder()
+                .addEmbeds(embed.build())
+                .setComponents(buildExpenseDetailActionRow(expenses, authorId, index))
+                .build();
+    }
+
+    public static MessageCreateData editDebtDetailView(String authorId, int index, JDA jda) {
+        List<Debt> debts = ExpenseManager.getOutstandingDebts();
+        Debt debt = debts.get(index);
+        EmbedBuilder embed = debt.createEmbed(jda)
+                .setFooter("Displaying debt " + (index + 1) + " of " + debts.size());
+        return new MessageCreateBuilder()
+                .addEmbeds(embed.build())
+                .setComponents(buildDebtDetailActionRow(debts, authorId, index))
+                .build();
+    }
+
+    private static EmbedBuilder createExpenseListEmbed(List<ExpenseData> expenses, int page) {
+        final int itemsPerPage = 5;
+        int totalPages = (int) Math.ceil((double) expenses.size() / itemsPerPage);
+        int startIndex = page * itemsPerPage;
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle("List of All Expenses");
+        embed.setColor(Color.MAGENTA);
+        embed.setFooter("Page " + (page + 1) + " of " + totalPages);
+
+        Function<ExpenseData, String> formatter = (expense) -> String.format(
+                "**%s** - %s\nPaid by <@%s> | ID: `%s`\n\n",
+                expense.name,
+                CurrencyUtils.formatAsUSD(expense.amount),
+                expense.payerId,
+                expense.expenseId
+        );
+
+        StringBuilder description = new StringBuilder();
+        for (int i = 0; i < itemsPerPage && (startIndex + i) < expenses.size(); i++) {
+            ExpenseData expense = expenses.get(startIndex + i);
+            description.append(formatter.apply(expense)).append("\n");
+        }
+        embed.setDescription(description.toString());
+        return embed;
+    }
+
+    private static EmbedBuilder createDebtListEmbed(List<Debt> debts, int page) {
+        final int itemsPerPage = 5;
+        int totalPages = (int) Math.ceil((double) debts.size() / itemsPerPage);
+        int startIndex = page * itemsPerPage;
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle("Outstanding Debts");
+        embed.setColor(Color.MAGENTA);
+        embed.setFooter("Page " + (page + 1) + " of " + totalPages);
+
+        Function<ExpenseData, String> formatter = (expense) -> String.format(
+                "**%s** - %s\nPaid by <@%s> | ID: `%s`\n\n",
+                expense.name,
+                CurrencyUtils.formatAsUSD(expense.amount),
+                expense.payerId,
+                expense.expenseId
+        );
+
+        StringBuilder description = new StringBuilder();
+        for (int i = 0; i < itemsPerPage && (startIndex + i) < debts.size(); i++) {
+            Debt debt = debts.get(startIndex + i);
+            description.append(String.format("`%d`: <@%s> owes <@%s> **%s**\n",
+                    debt.getDebtId(), debt.getDebtorId(), debt.getCreditorId(), CurrencyUtils.formatAsUSD(debt.getAmount())));
+        }
+        embed.setDescription(description.toString());
+        return embed;
+    }
+
+    private static List<ActionRow> buildExpenseListActionRow(List<ExpenseData> expenses, String authorId, int page) {
+        int totalPages = (int) Math.ceil((double) expenses.size() / 5.0);
+        int expenseIndex = page * 5;
+
+        Button prev = Button.secondary("expense-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
+        Button next = Button.secondary("expense-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
+
+        StringSelectMenu.Builder menu = StringSelectMenu.create("expense-list-zoom:" + authorId)
+                .setPlaceholder("View details for a specific expense...");
+
+        int startIndex = page * 5;
+        for (int i = 0; i < 5 && (startIndex + i) < expenses.size(); i++) {
+            ExpenseData expense = expenses.get(startIndex + i);
+            menu.addOption(expense.getName(), String.valueOf(startIndex + i));
+        }
+
+        return List.of(ActionRow.of(prev, next), ActionRow.of(menu.build()));
+    }
+
+    private static List<ActionRow> buildExpenseDetailActionRow(List<ExpenseData> expenses, String authorId, int index) {
+        int page = index / 5;
+
+        Button prev = Button.secondary("expense-detail-prev:" + authorId + ":" + index, "◀️ Previous Expense").withDisabled(index == 0);
+        Button next = Button.secondary("expense-detail-next:" + authorId + ":" + index, "Next Expense ▶️").withDisabled(index >= expenses.size() - 1);
+        Button back = Button.danger("expense-detail-back:" + authorId + ":" + page, "Back to List");
+
+        return List.of(ActionRow.of(prev, next), ActionRow.of(back));
+    }
+
+    private static List<ActionRow> buildDebtListActionRow(List<Debt> debts, String authorId, int page) {
+        int totalPages = (int) Math.ceil((double) debts.size() / 5.0);
+
+        Button prev = Button.secondary("debt-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
+        Button next = Button.secondary("debt-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
+
+        StringSelectMenu.Builder menu = StringSelectMenu.create("debt-list-zoom:" + authorId)
+                .setPlaceholder("View details for a specific debt...");
+
+        int startIndex = page * 5;
+        for (int i = 0; i < 5 && (startIndex + i) < debts.size(); i++) {
+            Debt debt = debts.get(startIndex + i);
+            menu.addOption(String.format("ID %d: ...owes... %s", debt.getDebtId(), CurrencyUtils.formatAsUSD(debt.getAmount())), String.valueOf(startIndex + i));
+        }
+
+        return List.of(ActionRow.of(prev, next), ActionRow.of(menu.build()));
+    }
+
+    private static List<ActionRow> buildDebtDetailActionRow(List<Debt> debts, String authorId, int index) {
+        int page = index / 5;
+
+        Button prev = Button.secondary("debt-detail-prev:" + authorId + ":" + index, "◀️ Previous Debt").withDisabled(index == 0);
+        Button next = Button.secondary("debt-detail-next:" + authorId + ":" + index, "Next Debt ▶️").withDisabled(index >= debts.size() - 1);
+        Button back = Button.danger("debt-detail-back:" + authorId + ":" + page, "Back to List");
+
+        return List.of(ActionRow.of(prev, next), ActionRow.of(back));
     }
 
 }

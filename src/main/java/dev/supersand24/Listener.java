@@ -1,6 +1,10 @@
 package dev.supersand24;
 
 import java.awt.*;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -8,15 +12,20 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import dev.supersand24.counters.CounterManager;
+import dev.supersand24.events.Event;
+import dev.supersand24.events.EventManager;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -147,7 +156,7 @@ public class Listener extends ListenerAdapter {
                         String optionName = e.getOption("name").getAsString();
                         double optionAmount = e.getOption("amount").getAsDouble();
 
-                        long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId());
+                        long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId(), 0);
 
                         e.reply("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense.\nChoose who benefited from " + optionName + ".")
                                 .addActionRow(
@@ -268,69 +277,204 @@ public class Listener extends ListenerAdapter {
                         .queue();
 
             }
+            case "event" -> {
+                switch (e.getSubcommandName()) {
+                    case "create" -> {
+                        String eventName = e.getOption("name").getAsString();
+                        EventManager.createEvent(eventName);
+                        e.reply("Created new event: **" + eventName + "**").setEphemeral(true).queue();
+                    }
+                    case "list" -> {
+                        e.deferReply().queue();
+                        MessageCreateData messageData = EventManager.sendListView(e.getUser().getId(), 0);
+                        e.getHook().sendMessage(messageData).queue();
+                    }
+                    case "edit" -> {
+                        long eventId = e.getOption("id").getAsLong();
+                        Event event = EventManager.getEventById(eventId);
+
+                        if (event == null) {
+                            e.reply("I can't find that Event in my calendar").setEphemeral(true).queue();
+                            return;
+                        }
+
+                        StringBuilder response = new StringBuilder("## Updated Event #" + eventId + "\n");
+                        boolean changed = false;
+
+                        OptionMapping nameOpt = e.getOption("name");
+                        if (nameOpt != null) {
+                            String newName = nameOpt.getAsString();
+                            event.setName(newName);
+                            response.append("- Name set to: **").append(newName).append("**\n");
+                            changed = true;
+                        }
+
+                        OptionMapping startDateOpt = e.getOption("start-date");
+                        if (startDateOpt != null) {
+                            long timestamp = parseDateToEpochMilli(startDateOpt.getAsString());
+                            if (timestamp == -1) {
+                                e.reply("Invalid start date format. Please use `MM/DD/YYYY`.").setEphemeral(true).queue();
+                                return;
+                            }
+                            event.setStartDate(timestamp);
+                            response.append("- Start date set to: <t:").append(timestamp / 1000).append(":D>\n");
+                            changed = true;
+                        }
+
+                        OptionMapping endDateOpt = e.getOption("end-date");
+                        if (endDateOpt != null) {
+                            long timestamp = parseDateToEpochMilli(endDateOpt.getAsString());
+                            if (timestamp == -1) {
+                                e.reply("Invalid end date format. Please use `MM/DD/YYYY`.").setEphemeral(true).queue();
+                                return;
+                            }
+                            event.setEndDate(timestamp);
+                            response.append("- End date set to: <t:").append(timestamp / 1000).append(":D>\n");
+                            changed = true;
+                        }
+
+                        OptionMapping roleOpt = e.getOption("role");
+                        if (roleOpt != null) {
+                            Role role = roleOpt.getAsRole();
+                            event.setRoleId(role.getIdLong());
+                            response.append("- Role set to: ").append(role.getAsMention()).append("\n");
+                            changed = true;
+                        }
+
+                        OptionMapping channelOpt = e.getOption("channel");
+                        if (channelOpt != null) {
+                            GuildChannel channel = channelOpt.getAsChannel();
+                            event.setChannelId(channel.getIdLong());
+                            response.append("- Channel set to: ").append(channel.getAsMention()).append("\n");
+                            changed = true;
+                        }
+
+                        OptionMapping addressOpt = e.getOption("address");
+                        if (addressOpt != null) {
+                            String address = addressOpt.getAsString();
+                            event.setAddress(address);
+                            response.append("- Address set to: `").append(address).append("`\n");
+                            changed = true;
+                        }
+
+                        OptionMapping linkOpt = e.getOption("omnidex-link");
+                        if (linkOpt != null) {
+                            String link = linkOpt.getAsString();
+                            event.setOmnidexLink(link);
+                            response.append("- Link set to: ").append(link).append("\n");
+                            changed = true;
+                        }
+
+                        if (changed) {
+                            DataStore.markDirty("events");
+                            e.reply(response.toString()).setEphemeral(true).queue();
+                        } else {
+                            e.reply("No changes were provided.").setEphemeral(true).queue();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private long parseDateToEpochMilli(String dateStr) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            LocalDate localDate = LocalDate.parse(dateStr, formatter);
+            return localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
+        } catch (DateTimeParseException e) {
+            return -1;
         }
     }
 
     @Override
     public void onStringSelectInteraction(StringSelectInteractionEvent e) {
-        if (!e.getComponentId().equals("role-select-menu")) {
-            return;
-        }
+        String[] parts = e.getComponentId().split(":");
+        String prefix = parts[0];
+        String authorId = parts[1];
 
-        Member member = e.getMember();
-        Guild guild = e.getGuild();
-        if (member == null || guild == null) return;
+        if (prefix.equals("role-select-menu")) {
+            Member member = e.getMember();
+            Guild guild = e.getGuild();
+            if (member == null || guild == null) return;
 
-        e.deferReply(true).queue();
+            e.deferReply(true).queue();
 
-        List<Role> currentMemberRoles = member.getRoles();
-        List<String> selectedRoleValues = e.getValues();
+            List<Role> currentMemberRoles = member.getRoles();
+            List<String> selectedRoleValues = e.getValues();
 
-        List<Role> allPossibleRoles = SELF_ASSIGNABLE_ROLES.values().stream()
-                .map(guild::getRoleById)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+            List<Role> allPossibleRoles = SELF_ASSIGNABLE_ROLES.values().stream()
+                    .map(guild::getRoleById)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
 
-        List<Role> rolesToAdd = new ArrayList<>();
-        List<Role> rolesToRemove = new ArrayList<>();
+            List<Role> rolesToAdd = new ArrayList<>();
+            List<Role> rolesToRemove = new ArrayList<>();
 
-        for (Role role : allPossibleRoles) {
-            boolean wasSelected = selectedRoleValues.contains(getRoleKey(role.getIdLong()));
-            boolean hasRole = currentMemberRoles.contains(role);
+            for (Role role : allPossibleRoles) {
+                boolean wasSelected = selectedRoleValues.contains(getRoleKey(role.getIdLong()));
+                boolean hasRole = currentMemberRoles.contains(role);
 
-            if (wasSelected != hasRole && !guild.getSelfMember().canInteract(role)) {
-                e.getHook().sendMessage("I don't have permissions to manage the `" + role.getName() + "` role. Please contact an admin to check my role position.").setEphemeral(true).queue();
+                if (wasSelected != hasRole && !guild.getSelfMember().canInteract(role)) {
+                    e.getHook().sendMessage("I don't have permissions to manage the `" + role.getName() + "` role. Please contact an admin to check my role position.").setEphemeral(true).queue();
+                    return;
+                }
+
+                if (wasSelected && !hasRole) {
+                    rolesToAdd.add(role);
+                } else if (!wasSelected && hasRole) {
+                    rolesToRemove.add(role);
+                }
+
+            }
+
+            if (rolesToAdd.isEmpty() && rolesToRemove.isEmpty()) {
+                e.getHook().sendMessage("Your roles have not changed").setEphemeral(true).queue();
                 return;
             }
 
-            if (wasSelected && !hasRole) {
-                rolesToAdd.add(role);
-            } else if (!wasSelected && hasRole) {
-                rolesToRemove.add(role);
+            guild.modifyMemberRoles(member, rolesToAdd, rolesToRemove).queue(
+                    success -> {
+                        StringBuilder response = new StringBuilder("I updated your roles!\n");
+                        if (!rolesToAdd.isEmpty()) {
+                            response.append(rolesToAdd.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was added.\n");
+                        }
+                        if (!rolesToRemove.isEmpty()) {
+                            response.append(rolesToRemove.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was removed.");
+                        }
+                        e.getHook().sendMessage(response.toString()).setEphemeral(true).queue();
+                    },
+                    error -> {
+                        e.getHook().sendMessage("I was unable to update your roles!").setEphemeral(true).queue();
+                    }
+            );
+        } else if (prefix.equals("event-list-zoom")) {
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
             }
 
-        }
+            e.deferEdit().queue();
 
-        if (rolesToAdd.isEmpty() && rolesToRemove.isEmpty()) {
-            e.getHook().sendMessage("Your roles have not changed").setEphemeral(true).queue();
-            return;
-        }
+            int index = Integer.parseInt(e.getValues().get(0));
+            MessageCreateData data = EventManager.editDetailView(authorId, index);
+            e.getHook().editOriginalEmbeds(data.getEmbeds())
+                    .setComponents(data.getComponents())
+                    .queue();
+        } else if (prefix.equals("expense-list-zoom")) {
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
 
-        guild.modifyMemberRoles(member, rolesToAdd, rolesToRemove).queue(
-                success -> {
-                    StringBuilder response = new StringBuilder("I updated your roles!\n");
-                    if (!rolesToAdd.isEmpty()) {
-                        response.append(rolesToAdd.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was added.\n");
-                    }
-                    if (!rolesToRemove.isEmpty()) {
-                        response.append(rolesToRemove.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was removed.");
-                    }
-                    e.getHook().sendMessage(response.toString()).setEphemeral(true).queue();
-                },
-                error -> {
-                    e.getHook().sendMessage("I was unable to update your roles!").setEphemeral(true).queue();
-                }
-        );
+            e.deferEdit().queue();
+
+            int index = Integer.parseInt(e.getValues().get(0));
+            MessageCreateData data = ExpenseManager.editExpenseDetailView(authorId, index);
+            e.getHook().editOriginalEmbeds(data.getEmbeds())
+                    .setComponents(data.getComponents())
+                    .queue();
+        }
     }
 
     private String getRoleKey(long roleId) {
@@ -378,43 +522,7 @@ public class Listener extends ListenerAdapter {
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
 
-        if (prefix.startsWith("expense-list-")) {
-            String authorId = parts[1];
-            String expenseId = parts[2];
-            int currentPage = Integer.parseInt(parts[3]);
-
-            if (!e.getUser().getId().equals(authorId)) {
-                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
-                return;
-            }
-
-            e.deferEdit().queue();
-            int newPage = prefix.endsWith("-next") ? currentPage + 1 : currentPage - 1;
-
-            MessageCreateData messageData = ExpenseManager.buildExpenseListPage(newPage, authorId, expenseId);
-            e.getHook().editOriginalEmbeds(messageData.getEmbeds())
-                    .setComponents(messageData.getComponents())
-                    .queue();
-
-        } else if (prefix.startsWith("expense-view-")) {
-            String authorId = parts[1];
-            int currentIndex = Integer.parseInt(parts[2]);
-
-            if (!e.getUser().getId().equals(authorId)) {
-                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
-                return;
-            }
-
-            e.deferEdit().queue();
-            int newIndex = prefix.endsWith("-next") ? currentIndex + 1 : currentIndex - 1;
-
-            MessageCreateData messageData = ExpenseManager.buildSingleExpenseView(newIndex, authorId);
-            e.getHook().editOriginalEmbeds(messageData.getEmbeds())
-                    .setComponents(messageData.getComponents())
-                    .queue();
-
-
-        } else if (prefix.equals("settleup-explain")) {
+        if (prefix.equals("settleup-explain")) {
             e.deferReply(true).queue();
 
             EmbedBuilder embed = new EmbedBuilder();
@@ -440,6 +548,114 @@ public class Listener extends ListenerAdapter {
                     false);
 
             e.getHook().sendMessageEmbeds(embed.build()).queue();
+        } else if (prefix.startsWith("event-")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            e.deferEdit().queue();
+
+            MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+
+            switch (prefix) {
+                case "event-list-prev", "event-list-next" -> {
+                    int currentPage = Integer.parseInt(parts[2]);
+                    int newPage = prefix.equals("event-list-next") ? currentPage + 1 : currentPage - 1;
+                    data = EventManager.editListView(authorId, newPage);
+                }
+                case "event-list-zoom" -> {
+                    int index = Integer.parseInt(parts[2]);
+                    data = EventManager.editDetailView(authorId, index);
+                }
+                case "event-detail-prev", "event-detail-next" -> {
+                    int currentIndex = Integer.parseInt(parts[2]);
+                    int newIndex = prefix.equals("event-detail-next") ? currentIndex + 1 : currentIndex - 1;
+                    data = EventManager.editDetailView(authorId, newIndex);
+                }
+                case "event-detail-back" -> {
+                    int page = Integer.parseInt(parts[2]);
+                    data = EventManager.editListView(authorId, page);
+                }
+            }
+
+            e.getHook().editOriginalEmbeds(data.getEmbeds())
+                    .setComponents(data.getComponents())
+                    .queue();
+        } else if (prefix.startsWith("expense-")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            e.deferEdit().queue();
+
+            MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+
+            switch (prefix) {
+                case "expense-list-prev", "expense-list-next" -> {
+                    int currentPage = Integer.parseInt(parts[2]);
+                    int newPage = prefix.equals("expense-list-next") ? currentPage + 1 : currentPage - 1;
+                    data = ExpenseManager.editExpenseListView(authorId, newPage);
+                }
+                case "expense-list-zoom" -> {
+                    int index = Integer.parseInt(parts[2]);
+                    data = ExpenseManager.editExpenseDetailView(authorId, index);
+                }
+                case "expense-detail-prev", "expense-detail-next" -> {
+                    int currentIndex = Integer.parseInt(parts[2]);
+                    int newIndex = prefix.equals("expense-detail-next") ? currentIndex + 1 : currentIndex - 1;
+                    data = ExpenseManager.editExpenseDetailView(authorId, newIndex);
+                }
+                case "expense-detail-back" -> {
+                    int page = Integer.parseInt(parts[2]);
+                    data = ExpenseManager.editExpenseListView(authorId, page);
+                }
+            }
+
+            e.getHook().editOriginalEmbeds(data.getEmbeds())
+                    .setComponents(data.getComponents())
+                    .queue();
+        }  else if (prefix.startsWith("debt-")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            e.deferEdit().queue();
+
+            MessageCreateData data = new MessageCreateBuilder().setContent("No debts.").build();
+
+            switch (prefix) {
+                case "debt-list-prev", "debt-list-next" -> {
+                    int currentPage = Integer.parseInt(parts[2]);
+                    int newPage = prefix.equals("debt-list-next") ? currentPage + 1 : currentPage - 1;
+                    data = ExpenseManager.editDebtListView(authorId, newPage);
+                }
+                case "debt-list-zoom" -> {
+                    int index = Integer.parseInt(parts[2]);
+                    data = ExpenseManager.editDebtDetailView(authorId, index, e.getJDA());
+                }
+                case "debt-detail-prev", "debt-detail-next" -> {
+                    int currentIndex = Integer.parseInt(parts[2]);
+                    int newIndex = prefix.equals("debt-detail-next") ? currentIndex + 1 : currentIndex - 1;
+                    data = ExpenseManager.editDebtDetailView(authorId, newIndex, e.getJDA());
+                }
+                case "debt-detail-back" -> {
+                    int page = Integer.parseInt(parts[2]);
+                    data = ExpenseManager.editDebtListView(authorId, page);
+                }
+            }
+
+            e.getHook().editOriginalEmbeds(data.getEmbeds())
+                    .setComponents(data.getComponents())
+                    .queue();
         }
     }
 

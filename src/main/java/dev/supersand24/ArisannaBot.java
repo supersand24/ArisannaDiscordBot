@@ -2,14 +2,17 @@ package dev.supersand24;
 
 import com.google.gson.reflect.TypeToken;
 import dev.supersand24.counters.CounterData;
+import dev.supersand24.events.Event;
 import dev.supersand24.expenses.Debt;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
 import dev.supersand24.expenses.PaymentInfo;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
@@ -52,6 +55,12 @@ public class ArisannaBot {
                 "debts",
                 "debts.json",
                 new TypeToken<DataPartition<Debt>>() {}.getType(),
+                DataPartition::new
+        );
+        DataStore.register(
+                "events",
+                "events.json",
+                new TypeToken<DataPartition<Event>>() {}.getType(),
                 DataPartition::new
         );
 
@@ -167,6 +176,24 @@ public class ArisannaBot {
                     ).queue();
 
             ArisannaBot.getAriGuild().upsertCommand("roles", "Commands for managing roles").queue();
+
+            ArisannaBot.getAriGuild().upsertCommand("event", "Manage travel events.")
+                    .addSubcommands(
+                            new SubcommandData("create", "Create a new event.")
+                                    .addOption(OptionType.STRING, "name", "The name of the new event", true),
+                            new SubcommandData("list", "List all created events."),
+                            new SubcommandData("edit", "Edit the details of an existing event.")
+                                    .addOption(OptionType.INTEGER, "id", "The ID of the event to edit.", true)
+                                    .addOption(OptionType.STRING, "name", "The new name for the event.", false)
+                                    .addOption(OptionType.STRING, "start-date", "The event's start date (e.g., 03/27/2025).", false)
+                                    .addOption(OptionType.STRING, "end-date", "The event's end date (e.g., 03/30/2025).", false)
+                                    .addOption(OptionType.ROLE, "role", "The role associated with this event.", false)
+                                    .addOption(OptionType.CHANNEL, "channel", "The channel for event discussions.", false)
+                                    .addOption(OptionType.STRING, "address", "The physical address of the event venue.", false)
+                                    .addOption(OptionType.STRING, "omnidex-link", "The event's omnidex link.", false)
+                    )
+                    .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_EVENTS))
+            .queue();
 
             emojiLoadingArisanna = Emoji.fromCustom("loading_arisanna", 1163570216018653316L, false);
             emojiBonkArisanna = Emoji.fromCustom("bonk_arisanna", 1163570214147993731L, false);
