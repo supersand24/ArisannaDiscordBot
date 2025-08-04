@@ -3,10 +3,11 @@ package dev.supersand24.expenses;
 import dev.supersand24.*;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu.Builder;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -536,7 +537,7 @@ public class ExpenseManager {
         Button prev = Button.secondary("expense-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
         Button next = Button.secondary("expense-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
 
-        StringSelectMenu.Builder menu = StringSelectMenu.create("expense-list-zoom:" + authorId)
+        Builder menu = StringSelectMenu.create("expense-list-zoom:" + authorId)
                 .setPlaceholder("View details for a specific expense...");
 
         int startIndex = page * 5;
@@ -564,7 +565,7 @@ public class ExpenseManager {
         Button prev = Button.secondary("debt-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
         Button next = Button.secondary("debt-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
 
-        StringSelectMenu.Builder menu = StringSelectMenu.create("debt-list-zoom:" + authorId)
+        Builder menu = StringSelectMenu.create("debt-list-zoom:" + authorId)
                 .setPlaceholder("View details for a specific debt...");
 
         int startIndex = page * 5;

@@ -17,14 +17,19 @@ import dev.supersand24.events.EventManager;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu.Builder;
+import net.dv8tion.jda.api.components.separator.Separator;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
-import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -158,13 +163,15 @@ public class Listener extends ListenerAdapter {
 
                         long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId(), 0);
 
-                        e.reply("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense.\nChoose who benefited from " + optionName + ".")
-                                .addActionRow(
-                                        EntitySelectMenu.create("expense-beneficiary-select:" + expenseId, EntitySelectMenu.SelectTarget.USER)
+                        e.replyComponents(Container.of(
+                                        TextDisplay.of("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense."),
+                                        Separator.createDivider(Separator.Spacing.SMALL),
+                                        TextDisplay.of("Choose who benefited from " + optionName + "."),
+                                        ActionRow.of(EntitySelectMenu.create("expense-beneficiary-select:" + expenseId, EntitySelectMenu.SelectTarget.USER)
                                                 .setDefaultValues(EntitySelectMenu.DefaultValue.user(e.getUser().getId()))
                                                 .setMaxValues(20)
-                                                .build()
-                                ).setEphemeral(true).queue();
+                                                .build())
+                                )).useComponentsV2().queue();
                     }
                     case "remove" -> {
                         e.reply("coming soon.").setEphemeral(true).queue();
@@ -256,24 +263,26 @@ public class Listener extends ListenerAdapter {
             }
             case "roles" -> {
 
-                StringSelectMenu.Builder menu = StringSelectMenu.create("role-select-menu")
+                Builder menu = StringSelectMenu.create("role-select-menu")
                         .setPlaceholder("Select the roles you want...")
                         .setRequiredRange(0, SELF_ASSIGNABLE_ROLES.size());
 
-                menu.addOption("Ascent Boston", "ascent-boston", "For going to Ascent Boston");
-                menu.addOption("Ascent Niagara Falls", "ascent-niagara-falls", "For going to Ascent Niagara Falls");
-                menu.addOption("Ascent Los Angeles", "ascent-los-angeles", "For going to Ascent Los Angeles");
-                menu.addOption("Ascent Las Vegas", "ascent-las-vegas", "For going to Ascent Las Vegas");
-
-                EmbedBuilder embed = new EmbedBuilder();
-                embed.setTitle("Role Selection");
-                embed.setDescription("Select any roles you'd like to receive from the dropdown menu below. Selecting a role you already have will remove it.");
-                embed.setColor(Color.PINK);
+                menu.addOption("Ascent Boston", "ascent-boston", "If you are interested in going to Ascent Boston.");
+                menu.addOption("Ascent Niagara Falls", "ascent-niagara-falls", "If you are interested in going to Ascent Niagara Falls.");
+                menu.addOption("Ascent Los Angeles", "ascent-los-angeles", "If you are interested in going to Ascent Los Angeles.");
+                menu.addOption("Ascent Las Vegas", "ascent-las-vegas", "If you are interested in going to Ascent Las Vegas.");
 
                 e.reply("Sending Role Selection now!").setEphemeral(true).queue();
 
-                e.getChannel().sendMessageEmbeds(embed.build())
-                        .addActionRow(menu.build())
+                Container container = Container.of(
+                        TextDisplay.of("## Role Selection"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("Select any roles you'd like to receive from the dropdown menu below. Selecting a role you already have will remove it."),
+                        ActionRow.of(menu.build())
+                );
+
+                e.getChannel().sendMessageComponents(container)
+                        .useComponentsV2()
                         .queue();
 
             }
@@ -389,9 +398,10 @@ public class Listener extends ListenerAdapter {
 
     @Override
     public void onStringSelectInteraction(StringSelectInteractionEvent e) {
+        System.out.println(e.getComponentId());
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
-        String authorId = parts[1];
+        String authorId = parts.length > 1 ? parts[1] : "";
 
         if (prefix.equals("role-select-menu")) {
             Member member = e.getMember();
@@ -406,7 +416,7 @@ public class Listener extends ListenerAdapter {
             List<Role> allPossibleRoles = SELF_ASSIGNABLE_ROLES.values().stream()
                     .map(guild::getRoleById)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+                    .toList();
 
             List<Role> rolesToAdd = new ArrayList<>();
             List<Role> rolesToRemove = new ArrayList<>();

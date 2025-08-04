@@ -4,10 +4,11 @@ import dev.supersand24.DataPartition;
 import dev.supersand24.DataStore;
 import dev.supersand24.Paginator;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu.Builder;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
@@ -112,7 +113,7 @@ public class EventManager {
         Button prev = Button.secondary("event-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
         Button next = Button.secondary("event-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
 
-        StringSelectMenu.Builder menu = StringSelectMenu.create("event-list-zoom:" + authorId)
+        Builder menu = StringSelectMenu.create("event-list-zoom:" + authorId)
                 .setPlaceholder("View details for a specific event...");
 
         int startIndex = page * 5;
