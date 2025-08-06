@@ -7,10 +7,12 @@ import dev.supersand24.expenses.Debt;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
 import dev.supersand24.expenses.PaymentInfo;
+import dev.supersand24.voice.VoiceManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -29,6 +31,7 @@ public class ArisannaBot {
 
     public static Emoji emojiLoadingArisanna;
     public static Emoji emojiBonkArisanna;
+    public static CustomEmoji emojiHeartArisanna;
 
     public static void main(String[] args) {
 
@@ -69,10 +72,11 @@ public class ArisannaBot {
         JDABuilder builder = JDABuilder.create(
             System.getenv("ARISANNA_DISCORD_BOT_TOKEN"),
             GatewayIntent.GUILD_MEMBERS,
+            GatewayIntent.GUILD_VOICE_STATES,
             GatewayIntent.SCHEDULED_EVENTS
         ).setMemberCachePolicy(MemberCachePolicy.ALL);
 
-        builder.addEventListeners( new Listener() );
+        builder.addEventListeners( new Listener(), new VoiceManager() );
 
         try {
             jda = builder.build();
@@ -197,6 +201,7 @@ public class ArisannaBot {
 
             emojiLoadingArisanna = Emoji.fromCustom("loading_arisanna", 1163570216018653316L, false);
             emojiBonkArisanna = Emoji.fromCustom("bonk_arisanna", 1163570214147993731L, false);
+            emojiHeartArisanna = Emoji.fromCustom("heart_arisanna", 1163570212872933486L, false);
 
         } catch (InterruptedException e) {
             e.printStackTrace();
