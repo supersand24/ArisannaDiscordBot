@@ -2,13 +2,14 @@ package dev.supersand24.events;
 
 import dev.supersand24.DataPartition;
 import dev.supersand24.DataStore;
-import dev.supersand24.Paginator;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.components.selections.StringSelectMenu;
-import net.dv8tion.jda.api.components.selections.StringSelectMenu.Builder;
-import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.components.buttons.ButtonStyle;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.separator.Separator;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
@@ -16,7 +17,6 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class EventManager {
@@ -60,104 +60,101 @@ public class EventManager {
                 .collect(Collectors.toList());
     }
 
-    public static MessageCreateData sendListView(String authorId, int page) {
+    public static MessageCreateData generateListMessage(String authorId, int page) {
         List<Event> events = EventManager.getAllEvents();
         if (events.isEmpty()) {
             return new MessageCreateBuilder().setContent("No events found matching criteria.").build();
         }
         return new MessageCreateBuilder()
-                .addEmbeds(buildListEmbed(events, page).build())
-                .setComponents(buildListActionRow(events, authorId, page))
+                .addComponents(buildListContainer(events, page, authorId))
+                .useComponentsV2()
                 .build();
     }
 
-    public static MessageCreateData editListView(String authorId, int page) {
-        List<Event> events = EventManager.getAllEvents();
-        return new MessageCreateBuilder()
-                .addEmbeds(buildListEmbed(events, page).build())
-                .setComponents(buildListActionRow(events, authorId, page))
-                .build();
-    }
-
-    public static MessageCreateData editDetailView(String authorId, int index) {
-        List<Event> events = EventManager.getAllEvents();
-        return new MessageCreateBuilder()
-                .addEmbeds(buildDetailEmbed(events, index).build())
-                .setComponents(buildDetailActionRow(events, authorId, index))
-                .build();
-    }
-
-    private static EmbedBuilder buildListEmbed(List<Event> events, int page) {
+    private static Container buildListContainer(List<Event> events, int page, String authorId) {
         final int itemsPerPage = 5;
         int totalPages = (int) Math.ceil((double) events.size() / itemsPerPage);
         int startIndex = page * itemsPerPage;
 
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("List of All Events");
-        embed.setColor(Color.MAGENTA);
-        embed.setFooter("Page " + (page + 1) + " of " + totalPages);
+        List<ContainerChildComponent> components = new ArrayList<>();
 
-        StringBuilder description = new StringBuilder();
+        components.add(TextDisplay.of("## List of All Events"));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+
+        //Add Text Display for current filter here
+
         for (int i = 0; i < itemsPerPage && (startIndex + i) < events.size(); i++) {
             Event event = events.get(startIndex + i);
-            description.append(String.format("`%d`: **%s**\n", event.getEventId(), event.getName()));
+            components.add(TextDisplay.of("### " + event.getName()));
+            components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, "event-list-zoom:" + authorId + ":" + (startIndex + i), "Details")));
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
         }
-        embed.setDescription(description.toString());
-        return embed;
+
+        components.add(TextDisplay.of("-# Page " + (page + 1) + " of " + totalPages));
+        components.add(buildListActionRow(events, authorId, page));
+
+        return Container.of(components);
     }
 
-    private static List<ActionRow> buildListActionRow(List<Event> events, String authorId, int page) {
+    private static ActionRow buildListActionRow(List<Event> events, String authorId, int page) {
         int totalPages = (int) Math.ceil((double) events.size() / 5.0);
-        int eventIndex = page * 5;
 
-        Button prev = Button.secondary("event-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
-        Button next = Button.secondary("event-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
+        Button prev = Button.secondary("event-list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
+        Button next = Button.secondary("event-list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
 
-        Builder menu = StringSelectMenu.create("event-list-zoom:" + authorId)
-                .setPlaceholder("View details for a specific event...");
-
-        int startIndex = page * 5;
-        for (int i = 0; i < 5 && (startIndex + i) < events.size(); i++) {
-            Event event = events.get(startIndex + i);
-            menu.addOption(event.getName(), String.valueOf(startIndex + i));
-        }
-
-        return List.of(ActionRow.of(prev, next), ActionRow.of(menu.build()));
+        return ActionRow.of(prev, next);
     }
 
-    private static EmbedBuilder buildDetailEmbed(List<Event> events, int index) {
+    public static MessageCreateData generateDetailMessage(String authorId, int index) {
+        List<Event> events = EventManager.getAllEvents();
+        return new MessageCreateBuilder()
+                .addComponents(buildDetailContainer(events, index, authorId))
+                .useComponentsV2()
+                .build();
+    }
+
+    private static Container buildDetailContainer(List<Event> events, int index, String authorId) {
         Event event = events.get(index);
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Event Details: " + event.getName());
-        embed.setColor(Color.ORANGE);
-        embed.setFooter("Event " + (index + 1) + " of " + events.size() + " • ID: " + event.getEventId());
+
+        List<ContainerChildComponent> components = new ArrayList<>();
+
+        components.add(TextDisplay.of("## Event Details: " + event.getName()));
 
         if (event.getStartDate() > 0 && event.getEndDate() > 0) {
-            embed.addField("Date", "<t:" + event.getStartDate() / 1000 + ":D> to <t:" + event.getEndDate() / 1000 + ":D>", false);
+            components.add(TextDisplay.of("Date\n<t:" + event.getStartDate() / 1000 + ":D> to <t:" + event.getEndDate() / 1000 + ":D>"));
         }
+
         if (event.getAddress() != null && !event.getAddress().isEmpty()) {
-            embed.addField("Address", event.getAddress(), false);
+            components.add(TextDisplay.of("Address: " + event.getAddress()));
         }
+
         if (event.getOmnidexLink() != null && !event.getOmnidexLink().isEmpty()) {
-            embed.addField("Link", event.getOmnidexLink(), false);
+            components.add(ActionRow.of(Button.link(event.getOmnidexLink(), "Omnidex")));
         }
+
         if (event.getChannelId() > 0) {
-            embed.addField("Channel", "<#" + event.getChannelId() + ">", true);
+            components.add(TextDisplay.of("<#" + event.getChannelId() + ">"));
         }
+
         if (event.getRoleId() > 0) {
-            embed.addField("Role", "<@&" + event.getRoleId() + ">", true);
+            components.add(TextDisplay.of("<@&" + event.getRoleId() + ">"));
         }
-        return embed;
+
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("-# Event " + (index + 1) + " of " + events.size() + " • ID: " + event.getEventId()));
+        components.add(buildDetailActionRow(events, authorId, index));
+
+        return Container.of(components);
     }
 
-    private static List<ActionRow> buildDetailActionRow(List<Event> events, String authorId, int index) {
+    private static ActionRow buildDetailActionRow(List<Event> events, String authorId, int index) {
         int page = index / 5;
 
-        Button prev = Button.secondary("event-detail-prev:" + authorId + ":" + index, "◀️ Previous Event").withDisabled(index == 0);
-        Button next = Button.secondary("event-detail-next:" + authorId + ":" + index, "Next Event ▶️").withDisabled(index >= events.size() - 1);
-        Button back = Button.danger("event-detail-back:" + authorId + ":" + page, "Back to List");
+        Button prev = Button.secondary("event-detail-prev:" + authorId + ":" + index, "◀️ Previous").withDisabled(index == 0);
+        Button next = Button.secondary("event-detail-next:" + authorId + ":" + index, "Next ▶️").withDisabled(index >= events.size() - 1);
+        Button back = Button.danger("event-detail-back:" + authorId + ":" + page, "List");
 
-        return List.of(ActionRow.of(prev, next), ActionRow.of(back));
+        return ActionRow.of(prev, next, back);
     }
 
 }

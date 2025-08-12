@@ -295,8 +295,8 @@ public class Listener extends ListenerAdapter {
                     }
                     case "list" -> {
                         e.deferReply().queue();
-                        MessageCreateData messageData = EventManager.sendListView(e.getUser().getId(), 0);
-                        e.getHook().sendMessage(messageData).queue();
+                        MessageCreateData messageData = EventManager.generateListMessage(e.getUser().getId(), 0);
+                        e.getHook().sendMessage(messageData).useComponentsV2().queue();
                     }
                     case "edit" -> {
                         long eventId = e.getOption("id").getAsLong();
@@ -467,7 +467,7 @@ public class Listener extends ListenerAdapter {
             e.deferEdit().queue();
 
             int index = Integer.parseInt(e.getValues().get(0));
-            MessageCreateData data = EventManager.editDetailView(authorId, index);
+            MessageCreateData data = EventManager.generateDetailMessage(authorId, index);
             e.getHook().editOriginalEmbeds(data.getEmbeds())
                     .setComponents(data.getComponents())
                     .queue();
@@ -574,26 +574,27 @@ public class Listener extends ListenerAdapter {
                 case "event-list-prev", "event-list-next" -> {
                     int currentPage = Integer.parseInt(parts[2]);
                     int newPage = prefix.equals("event-list-next") ? currentPage + 1 : currentPage - 1;
-                    data = EventManager.editListView(authorId, newPage);
+                    data = EventManager.generateListMessage(authorId, newPage);
                 }
                 case "event-list-zoom" -> {
                     int index = Integer.parseInt(parts[2]);
-                    data = EventManager.editDetailView(authorId, index);
+                    data = EventManager.generateDetailMessage(authorId, index);
                 }
                 case "event-detail-prev", "event-detail-next" -> {
                     int currentIndex = Integer.parseInt(parts[2]);
                     int newIndex = prefix.equals("event-detail-next") ? currentIndex + 1 : currentIndex - 1;
-                    data = EventManager.editDetailView(authorId, newIndex);
+                    data = EventManager.generateDetailMessage(authorId, newIndex);
                 }
                 case "event-detail-back" -> {
                     int page = Integer.parseInt(parts[2]);
-                    data = EventManager.editListView(authorId, page);
+                    data = EventManager.generateListMessage(authorId, page);
                 }
             }
 
-            e.getHook().editOriginalEmbeds(data.getEmbeds())
-                    .setComponents(data.getComponents())
+            e.getHook().editOriginalComponents(data.getComponents())
+                    .useComponentsV2()
                     .queue();
+
         } else if (prefix.startsWith("expense-")) {
             String authorId = parts[1];
 
