@@ -1,8 +1,7 @@
 package dev.supersand24;
 
 import java.awt.*;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -12,7 +11,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import dev.supersand24.counters.CounterManager;
-import dev.supersand24.events.Event;
 import dev.supersand24.events.EventManager;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
@@ -26,12 +24,16 @@ import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,10 +55,11 @@ public class Listener extends ListenerAdapter {
     );
 
     @Override
-    public void onReady(ReadyEvent ev) {
+    public void onReady(ReadyEvent e) {
         log.info("Listener is Ready.");
     }
 
+    @Override
     public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent e) {
         if (e.getFocusedOption().getName().equals("counter")) {
             List<Command.Choice> options = CounterManager.getCounterNames().stream()
@@ -161,7 +164,8 @@ public class Listener extends ListenerAdapter {
                         String optionName = e.getOption("name").getAsString();
                         double optionAmount = e.getOption("amount").getAsDouble();
 
-                        long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId(), 0);
+                        //Temp
+                        long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId(), EventManager.getAllEvents().getFirst());
 
                         e.replyComponents(Container.of(
                                         TextDisplay.of("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense."),
@@ -300,12 +304,6 @@ public class Listener extends ListenerAdapter {
                     }
                     case "edit" -> {
                         long eventId = e.getOption("id").getAsLong();
-                        Event event = EventManager.getEventById(eventId);
-
-                        if (event == null) {
-                            e.reply("I can't find that Event in my calendar").setEphemeral(true).queue();
-                            return;
-                        }
 
                         StringBuilder response = new StringBuilder("## Updated Event #" + eventId + "\n");
                         boolean changed = false;
@@ -313,7 +311,7 @@ public class Listener extends ListenerAdapter {
                         OptionMapping nameOpt = e.getOption("name");
                         if (nameOpt != null) {
                             String newName = nameOpt.getAsString();
-                            event.setName(newName);
+                            EventManager.setEventName(eventId, newName);
                             response.append("- Name set to: **").append(newName).append("**\n");
                             changed = true;
                         }
@@ -325,7 +323,7 @@ public class Listener extends ListenerAdapter {
                                 e.reply("Invalid start date format. Please use `MM/DD/YYYY`.").setEphemeral(true).queue();
                                 return;
                             }
-                            event.setStartDate(timestamp);
+                            EventManager.setStartDate(eventId, timestamp);
                             response.append("- Start date set to: <t:").append(timestamp / 1000).append(":D>\n");
                             changed = true;
                         }
@@ -337,7 +335,7 @@ public class Listener extends ListenerAdapter {
                                 e.reply("Invalid end date format. Please use `MM/DD/YYYY`.").setEphemeral(true).queue();
                                 return;
                             }
-                            event.setEndDate(timestamp);
+                            EventManager.setEndDate(eventId, timestamp);
                             response.append("- End date set to: <t:").append(timestamp / 1000).append(":D>\n");
                             changed = true;
                         }
@@ -345,7 +343,7 @@ public class Listener extends ListenerAdapter {
                         OptionMapping roleOpt = e.getOption("role");
                         if (roleOpt != null) {
                             Role role = roleOpt.getAsRole();
-                            event.setRoleId(role.getIdLong());
+                            EventManager.setRoleId(eventId, role.getIdLong());
                             response.append("- Role set to: ").append(role.getAsMention()).append("\n");
                             changed = true;
                         }
@@ -353,7 +351,7 @@ public class Listener extends ListenerAdapter {
                         OptionMapping channelOpt = e.getOption("channel");
                         if (channelOpt != null) {
                             GuildChannel channel = channelOpt.getAsChannel();
-                            event.setChannelId(channel.getIdLong());
+                            EventManager.setChannelId(eventId, channel.getIdLong());
                             response.append("- Channel set to: ").append(channel.getAsMention()).append("\n");
                             changed = true;
                         }
@@ -361,15 +359,15 @@ public class Listener extends ListenerAdapter {
                         OptionMapping addressOpt = e.getOption("address");
                         if (addressOpt != null) {
                             String address = addressOpt.getAsString();
-                            event.setAddress(address);
+                            EventManager.setAddress(eventId, address);
                             response.append("- Address set to: `").append(address).append("`\n");
                             changed = true;
                         }
 
-                        OptionMapping linkOpt = e.getOption("omnidex-link");
+                        OptionMapping linkOpt = e.getOption("omnidex");
                         if (linkOpt != null) {
                             String link = linkOpt.getAsString();
-                            event.setOmnidexLink(link);
+                            EventManager.setOmnidexLink(eventId, link);
                             response.append("- Link set to: ").append(link).append("\n");
                             changed = true;
                         }
@@ -497,7 +495,7 @@ public class Listener extends ListenerAdapter {
 
     @Override
     public void onEntitySelectInteraction(EntitySelectInteractionEvent e) {
-        log.info(e.getComponentId() + " was interacted with.");
+        log.info("{} was interacted with.", e.getComponentId());
 
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
@@ -523,11 +521,35 @@ public class Listener extends ListenerAdapter {
                 e.reply("Added " + beneficiaryIds.size() + " people to " + ExpenseManager.getName(expenseId) + " expense.").setEphemeral(true).queue();
             }
         }
+        else if (prefix.equals("event-edit-channel")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            int index = Integer.parseInt(parts[2]);
+            EventManager.setChannelId(index, e.getMentions().getChannels().getFirst().getIdLong());
+            e.reply("Channel Updated").setEphemeral(true).queue();
+
+        } else if (prefix.equals("event-edit-role")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            int index = Integer.parseInt(parts[2]);
+            EventManager.setRoleId(index, e.getMentions().getRoles().getFirst().getIdLong());
+            e.reply("Role Updated").setEphemeral(true).queue();
+        }
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent e) {
-        log.info(e.getComponentId() + " was pressed.");
+        log.info("{} was pressed.", e.getComponentId());
 
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
@@ -566,34 +588,72 @@ public class Listener extends ListenerAdapter {
                 return;
             }
 
-            e.deferEdit().queue();
+            if (prefix.equals("event-edit")) {
 
-            MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+                int index = Integer.parseInt(parts[2]);
 
-            switch (prefix) {
-                case "event-list-prev", "event-list-next" -> {
-                    int currentPage = Integer.parseInt(parts[2]);
-                    int newPage = prefix.equals("event-list-next") ? currentPage + 1 : currentPage - 1;
-                    data = EventManager.generateListMessage(authorId, newPage);
+                e.editComponents(EventManager.generateEditContainer(index, authorId))
+                        .useComponentsV2()
+                        .queue();
+
+            } else if (prefix.startsWith("event-edit-")) {
+
+                int index = Integer.parseInt(parts[2]);
+
+                switch (prefix) {
+                    case "event-edit-name" -> e.replyModal(EventManager.generateEditNameModal(index)).queue();
+                    case "event-edit-dates" -> e.replyModal(EventManager.generateEditDatesModal(index)).queue();
+                    case "event-edit-address" -> e.replyModal(EventManager.generateEditAddressModal(index)).queue();
+                    case "event-edit-omnidex" -> e.replyModal(EventManager.generateEditOmnidexModal(index)).queue();
+                    case "event-edit-delete" -> {
+                        Modal modal = EventManager.generateDeleteEventModel(index);
+                        if (modal == null)
+                            e.reply("Could not delete non existing event!").setEphemeral(true).queue();
+                        else
+                            e.replyModal(modal).queue();
+                    }
+                    case "event-edit-view" ->
+                        e.editComponents(EventManager.buildDetailContainer(index, authorId))
+                                .useComponentsV2()
+                                .queue();
+                    case "event-edit-view-list" ->
+                        e.editComponents(EventManager.buildListContainer(EventManager.getAllEvents(), 0, authorId))
+                                .useComponentsV2()
+                                .queue();
+                    default -> {
+                        log.error("Unexpected Event Edit Button Pressed!");
+                        e.reply("Something went wrong!").setEphemeral(true).queue();
+                    }
                 }
-                case "event-list-zoom" -> {
-                    int index = Integer.parseInt(parts[2]);
-                    data = EventManager.generateDetailMessage(authorId, index);
+
+            } else {
+
+                e.deferEdit().queue();
+
+                MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+
+                switch (prefix) {
+                    case "event-list-prev", "event-list-next" -> {
+                        int currentPage = Integer.parseInt(parts[2]);
+                        int newPage = prefix.equals("event-list-next") ? currentPage + 1 : currentPage - 1;
+                        data = EventManager.generateListMessage(authorId, newPage);
+                    }
+                    case "event-list-zoom" -> {
+                        int index = Integer.parseInt(parts[2]);
+                        data = EventManager.generateDetailMessage(authorId, index);
+                    }
+                    case "event-detail-prev", "event-detail-next" -> {
+                        int currentIndex = Integer.parseInt(parts[2]);
+                        int newIndex = prefix.equals("event-detail-next") ? currentIndex + 1 : currentIndex - 1;
+                        data = EventManager.generateDetailMessage(authorId, newIndex);
+                    }
+                    case "event-detail-back" -> data = EventManager.generateListMessage(authorId, 0);
                 }
-                case "event-detail-prev", "event-detail-next" -> {
-                    int currentIndex = Integer.parseInt(parts[2]);
-                    int newIndex = prefix.equals("event-detail-next") ? currentIndex + 1 : currentIndex - 1;
-                    data = EventManager.generateDetailMessage(authorId, newIndex);
-                }
-                case "event-detail-back" -> {
-                    int page = Integer.parseInt(parts[2]);
-                    data = EventManager.generateListMessage(authorId, page);
-                }
+
+                e.getHook().editOriginalComponents(data.getComponents())
+                        .useComponentsV2()
+                        .queue();
             }
-
-            e.getHook().editOriginalComponents(data.getComponents())
-                    .useComponentsV2()
-                    .queue();
 
         } else if (prefix.startsWith("expense-")) {
             String authorId = parts[1];
@@ -670,4 +730,104 @@ public class Listener extends ListenerAdapter {
         }
     }
 
+    private Long parseDateFromModal(ModalMapping mapping, DateTimeFormatter formatter) {
+        if (mapping == null || mapping.getAsString().isEmpty()) {
+            return null;
+        }
+        try {
+            LocalDate localDate = LocalDate.parse(mapping.getAsString(), formatter);
+            ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
+            return zonedDateTime.toInstant().toEpochMilli();
+        } catch (DateTimeParseException e) {
+            log.error("Invalid Date was entered. {}", mapping.getAsString());
+            return null;
+        }
+    }
+
+    @Override
+    public void onModalInteraction(@NotNull ModalInteractionEvent e) {
+        log.info("{} modal was submitted.", e.getModalId());
+
+        String[] parts = e.getModalId().split(":");
+        String prefix = parts[0];
+
+        if (prefix.startsWith("event-edit-")) {
+            long eventIndex = Long.parseLong(parts[1]);
+
+            switch (prefix) {
+                case "event-edit-name" -> {
+                    boolean hasChanged = false;
+                    ModalMapping name = e.getValue("name");
+                    if (name != null) {
+                        EventManager.setEventName(eventIndex, name.getAsString());
+                        hasChanged = true;
+                    }
+                    e.reply(hasChanged ? "Name updated successfully!" : "No changes were made.").setEphemeral(true).queue();
+                }
+                case "event-edit-dates" -> {
+
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+                    boolean hasChanged = false;
+
+                    ModalMapping startDateMapping = e.getValue("start-date");
+                    Long newStartDate = parseDateFromModal(startDateMapping, formatter);
+
+                    if (newStartDate == null && startDateMapping != null && !startDateMapping.getAsString().isEmpty()) {
+                        e.reply("Invalid start date format. Please use **MM/DD/YYYY**.").setEphemeral(true).queue();
+                        return;
+                    }
+
+                    if (newStartDate != null) {
+                        EventManager.setStartDate(eventIndex, newStartDate);
+                        hasChanged = true;
+                    }
+
+                    ModalMapping endDateMapping = e.getValue("end-date");
+                    Long newEndDate = parseDateFromModal(endDateMapping, formatter);
+
+                    if (newEndDate == null && endDateMapping != null && !endDateMapping.getAsString().isEmpty()) {
+                        e.reply("Invalid end date format. Please use **MM/DD/YYYY**.").setEphemeral(true).queue();
+                        return;
+                    }
+
+                    if (newEndDate != null) {
+                        EventManager.setEndDate(eventIndex, newEndDate);
+                        hasChanged = true;
+                    }
+
+                    e.reply(hasChanged ? "Dates updated successfully!" : "No changes were made.").setEphemeral(true).queue();
+                }
+                case "event-edit-address" -> {
+                    boolean hasChanged = false;
+                    ModalMapping address = e.getValue("address");
+                    if (address != null) {
+                        EventManager.setAddress(eventIndex, address.getAsString());
+                        hasChanged = true;
+                    }
+                    e.reply(hasChanged ? "Address updated successfully!" : "No changes were made.").setEphemeral(true).queue();
+                }
+                case "event-edit-omnidex" -> {
+                    boolean hasChanged = false;
+                    ModalMapping omnidex = e.getValue("omnidex");
+                    if (omnidex != null) {
+                        EventManager.setOmnidexLink(eventIndex, omnidex.getAsString());
+                        hasChanged = true;
+                    }
+                    e.reply(hasChanged ? "Omnidex updated successfully!" : "No changes were made.").setEphemeral(true).queue();
+                }
+                case "event-edit-delete" -> {
+                    ModalMapping name = e.getValue("name");
+                    if (name == null) { e.reply("There was an issue deleting the event!").setEphemeral(true).queue(); return; }
+                    if (name.getAsString().equals(EventManager.getEventName(eventIndex))) {
+                        if (EventManager.deleteEvent(eventIndex))
+                            e.reply(name.getAsString() + " was deleted!").setEphemeral(true).queue();
+                        else
+                            e.reply("There was an issue deleting the event!").setEphemeral(true).queue();
+                    }
+                    else e.reply("That is not the correct event name!").setEphemeral(true).queue();
+                }
+            }
+        }
+
+    }
 }

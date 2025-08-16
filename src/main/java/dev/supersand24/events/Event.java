@@ -14,11 +14,10 @@ public class Event implements Identifiable {
     private String omnidexLink;
 
     public Event(String name) {
-        this.eventId = eventId;
         this.name = name;
     }
 
-    public long getEventId() { return eventId; }
+    public long getId() { return eventId; }
     @Override public void setId(long id) { eventId = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

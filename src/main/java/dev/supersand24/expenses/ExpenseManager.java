@@ -1,6 +1,7 @@
 package dev.supersand24.expenses;
 
 import dev.supersand24.*;
+import dev.supersand24.events.Event;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -34,11 +35,11 @@ public class ExpenseManager {
         return debts.getData();
     }
 
-    public static long createExpense(String name, double amount, String payerId, long eventId) {
+    public static long createExpense(String name, double amount, String payerId, Event event) {
         DataPartition<ExpenseData> expensesHashMap = DataStore.get("expenses");
         long newId = expensesHashMap.getAndIncrementId();
         Map<Long, ExpenseData> expenses = expensesHashMap.getData();
-        ExpenseData expense = new ExpenseData(newId, eventId, name, amount, payerId);
+        ExpenseData expense = new ExpenseData(newId, event.getId(), name, amount, payerId);
         expenses.put(newId, expense);
         DataStore.markDirty("expenses");
         return expense.expenseId;
