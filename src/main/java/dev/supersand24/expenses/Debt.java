@@ -2,14 +2,11 @@ package dev.supersand24.expenses;
 
 import dev.supersand24.CurrencyUtils;
 import dev.supersand24.Identifiable;
-import dev.supersand24.events.Event;
-import dev.supersand24.events.EventManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.User;
 
 import java.awt.*;
-import java.time.Instant;
 import java.util.List;
 
 public class Debt implements Identifiable {
@@ -49,14 +46,15 @@ public class Debt implements Identifiable {
     public EmbedBuilder createEmbed(JDA jda) {
         User debtor = jda.retrieveUserById(debtorId).complete();
         User creditor = jda.retrieveUserById(creditorId).complete();
-        Event event = EventManager.getEventById(eventId);
+        //Event event = EventManager.getEventById(eventId);
+
 
         EmbedBuilder embed = new EmbedBuilder();
         embed.setColor(Color.RED);
         embed.setTitle("Debt Details: " + debtor.getName() + " → " + creditor.getName());
 
         embed.addField("Amount Owed", CurrencyUtils.formatAsUSD(amount), false);
-        embed.addField("For Event", event != null ? event.getName() : "Unknown Event", false);
+        //embed.addField("For Event", event != null ? event.getName() : "Unknown Event", false);
 
         List<PaymentInfo> paymentInfos = ExpenseManager.getPaymentInfoForUser(creditorId);
         if (!paymentInfos.isEmpty()) {
@@ -71,4 +69,5 @@ public class Debt implements Identifiable {
 
         return embed;
     }
+
 }

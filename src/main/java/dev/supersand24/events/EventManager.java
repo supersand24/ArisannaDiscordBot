@@ -56,7 +56,7 @@ public class EventManager {
      * @return The Event object, or null if not found.
      */
     private static Event getEventById(long eventId) {
-        DataPartition<Event> eventPartition = DataStore.get("events");
+        DataPartition<Event> eventPartition = DataStore.get(DATA_STORE_NAME);
         return eventPartition.getData().get(eventId);
     }
 

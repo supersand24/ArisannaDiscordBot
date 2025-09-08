@@ -6,8 +6,11 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.components.selections.StringSelectMenu;
-import net.dv8tion.jda.api.components.selections.StringSelectMenu.Builder;
+import net.dv8tion.jda.api.components.buttons.ButtonStyle;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.separator.Separator;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -25,29 +28,54 @@ public class ExpenseManager {
 
     private static final Logger log = LoggerFactory.getLogger(ExpenseManager.class);
 
+    private static final String EXPENSES_DATA_STORE_NAME = "expenses";
+    private static final String DEBTS_DATA_STORE_NAME = "debts";
+
+    private static final int ITEMS_PER_PAGE = 5;
+
     private static Map<Long, ExpenseData> getExpensesMap() {
-        DataPartition<ExpenseData> expenses = DataStore.get("expenses");
+        DataPartition<ExpenseData> expenses = DataStore.get(EXPENSES_DATA_STORE_NAME);
         return expenses.getData();
     }
 
+    /**
+     * Retrieves a specific event by its ID.
+     * @param expenseId The ID of the event to find.
+     * @return The Event object, or null if not found.
+     */
+    private static ExpenseData getExpenseById(long expenseId) {
+        DataPartition<ExpenseData> eventPartition = DataStore.get(EXPENSES_DATA_STORE_NAME);
+        return eventPartition.getData().get(expenseId);
+    }
+
     private static Map<Long, Debt> getDebtMap() {
-        DataPartition<Debt> debts = DataStore.get("debts");
+        DataPartition<Debt> debts = DataStore.get(DEBTS_DATA_STORE_NAME);
         return debts.getData();
     }
 
+    /**
+     * Retrieves a specific event by its ID.
+     * @param debtId The ID of the event to find.
+     * @return The Debt object, or null if not found.
+     */
+    private static Debt getDebtById(long debtId) {
+        DataPartition<Debt> debtPartition = DataStore.get(DEBTS_DATA_STORE_NAME);
+        return debtPartition.getData().get(debtId);
+    }
+
     public static long createExpense(String name, double amount, String payerId, Event event) {
-        DataPartition<ExpenseData> expensesHashMap = DataStore.get("expenses");
+        DataPartition<ExpenseData> expensesHashMap = DataStore.get(EXPENSES_DATA_STORE_NAME);
         long newId = expensesHashMap.getAndIncrementId();
         Map<Long, ExpenseData> expenses = expensesHashMap.getData();
         ExpenseData expense = new ExpenseData(newId, event.getId(), name, amount, payerId);
         expenses.put(newId, expense);
-        DataStore.markDirty("expenses");
-        return expense.expenseId;
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        return expense.getId();
     }
 
     public static void deleteExpense(long key) {
         getExpensesMap().remove(key);
-        DataStore.markDirty("expenses");
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
     }
 
     public static boolean exists(long key) {
@@ -57,50 +85,10 @@ public class ExpenseManager {
     public static String getName(long key) {
         ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
-            return expense.name;
+            return expense.getName();
         } else {
             log.error("Expense " + key + " does not exist.");
             return "???";
-        }
-    }
-
-    public static void setAmount(long key, double amount) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            expense.amount = amount;
-            DataStore.markDirty("expenses");
-        } else {
-            log.error("Expense " + key + " does not exist.");
-        }
-    }
-
-    public static double getAmount(long key) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            return expense.amount;
-        } else {
-            log.error("Expense " + key + " does not exist.");
-            return 0;
-        }
-    }
-
-    public static boolean isBenefitingFromExpense(long key, String userId) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            return expense.beneficiaryIds.contains(userId);
-        } else {
-            log.error("Expense " + key + " does not exist.");
-            return false;
-        }
-    }
-
-    public static void addBenefactor(long key, String benefactorId) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            expense.beneficiaryIds.add(benefactorId);
-            DataStore.markDirty("expenses");
-        } else {
-            log.error("Expense " + key + " does not exist.");
         }
     }
 
@@ -108,33 +96,9 @@ public class ExpenseManager {
         ExpenseData expense = getExpensesMap().get(key);
         if (expense != null) {
             for (String id : benefactorIds) {
-                if (!expense.beneficiaryIds.contains(id)) {
-                    expense.beneficiaryIds.add(id);
-                    DataStore.markDirty("expenses");
-                }
-            }
-        } else {
-            log.error("Expense " + key + " does not exist.");
-        }
-    }
-
-    public static void removeBenefactor(long key, String benefactorId) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            expense.beneficiaryIds.remove(benefactorId);
-            DataStore.markDirty("expenses");
-        } else {
-            log.error("Expense " + key + " does not exist.");
-        }
-    }
-
-    public static void removeBenefactors(long key, List<String> benefactorIds) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            for (String id : benefactorIds) {
-                if (expense.beneficiaryIds.contains(id)) {
-                    expense.beneficiaryIds.remove(id);
-                    DataStore.markDirty("expenses");
+                if (!expense.getBeneficiaryIds().contains(id)) {
+                    expense.getBeneficiaryIds().add(id);
+                    DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
                 }
             }
         } else {
@@ -150,7 +114,7 @@ public class ExpenseManager {
 
     public static List<ExpenseData> getExpensesForUserSorted(String userId) {
         return getExpensesMap().values().stream()
-                .filter(exp -> exp.payerId.equals(userId) || exp.beneficiaryIds.contains(userId))
+                .filter(exp -> exp.getPayerId().equals(userId) || exp.getBeneficiaryIds().contains(userId))
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
@@ -189,9 +153,9 @@ public class ExpenseManager {
         // Step 2: Calculate the net balance for every user.
         Map<String, Double> balances = new HashMap<>();
         for (ExpenseData expense : unsettledExpenses) {
-            String payerId = expense.payerId;
-            double totalAmount = expense.amount;
-            List<String> beneficiaries = expense.beneficiaryIds;
+            String payerId = expense.getPayerId();
+            double totalAmount = expense.getAmount();
+            List<String> beneficiaries = expense.getBeneficiaryIds();
 
             if (beneficiaries == null || beneficiaries.isEmpty()) continue;
 
@@ -326,66 +290,9 @@ public class ExpenseManager {
         if (expenses.isEmpty())
             return new MessageCreateBuilder().setContent("No expenses found matching criteria.").build();
 
-        Paginator<ExpenseData> paginator = new Paginator<>(expenses);
-        final int itemsPerPage = 5;
-
-        Function<ExpenseData, String> formatter = (expense) -> String.format(
-                "**%s** - %s\nPaid by <@%s> | ID: `%s`\n\n",
-                expense.name,
-                CurrencyUtils.formatAsUSD(expense.amount),
-                expense.payerId,
-                expense.expenseId
-        );
-
-        EmbedBuilder embed = paginator.getEmbed(page, itemsPerPage, "Expense List", Color.CYAN, formatter);
-        int totalPages = paginator.getTotalPages(itemsPerPage);
-
         return new MessageCreateBuilder()
-                .addEmbeds(embed.build())
-                .addComponents(buildExpenseListActionRow(expenses, authorId, page))
-                .build();
-    }
-
-    public static MessageCreateData buildSingleExpenseView(int index, String authorId) {
-        List<ExpenseData> sortedExpenses = getExpensesSorted();
-
-        if (sortedExpenses.isEmpty())
-            return new MessageCreateBuilder().setContent("There are no expenses to view.").build();
-        if (index < 0 || index >= sortedExpenses.size())
-            return new MessageCreateBuilder().setContent("I think I made a mistake somewhere! :anxious_silvie:").build();
-
-        ExpenseData expense = sortedExpenses.get(index);
-
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(Color.ORANGE);
-        embed.setTitle("Expense Details");
-        embed.setTimestamp(Instant.ofEpochMilli(expense.getTimestamp()));
-
-        embed.setDescription("### " + expense.name);
-
-        double share = expense.beneficiaryIds.isEmpty()
-                ? 0.0
-                : expense.amount / expense.beneficiaryIds .size();
-
-        embed.addField("Total Amount", CurrencyUtils.formatAsUSD(expense.amount), true);
-        embed.addField("Paid By", "<@" + expense.payerId + ">", true);
-        embed.addBlankField(true);
-        embed.addField("Share per Person", CurrencyUtils.formatAsUSD(share), true);
-        embed.addField("Beneficiaries", String.valueOf(expense.beneficiaryIds.size()), true);
-        embed.addBlankField(true);
-        embed.addField("Expense ID", "`" + expense.expenseId + "`", false);
-
-        embed.setFooter("Displaying expense " + (index + 1) + " of " + sortedExpenses.size());
-
-        Button prevButton = Button.secondary("expense-view-prev:" + authorId + ":" + index, "◀️ Previous Expense")
-                .withDisabled(index == 0);
-
-        Button nextButton = Button.secondary("expense-view-next:" + authorId + ":" + index, "Next Expense ▶️")
-                .withDisabled(index >= sortedExpenses.size() - 1);
-
-        return new MessageCreateBuilder()
-                .addEmbeds(embed.build())
-                .addComponents(ActionRow.of(prevButton, nextButton))
+                .addComponents(buildExpenseListContainer(expenses, page, authorId))
+                .useComponentsV2()
                 .build();
     }
 
@@ -408,184 +315,204 @@ public class ExpenseManager {
                 .build();
     }
 
-    public static MessageCreateData buildDebtList() {
+    public static MessageCreateData generateExpenseListMessage(String authorId, int page) {
+        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted();
+        if (expenses.isEmpty()) {
+            return new MessageCreateBuilder().setContent("No expenses found matching criteria.").build();
+        }
+        return new MessageCreateBuilder()
+                .addComponents(buildExpenseListContainer(expenses, page, authorId))
+                .useComponentsV2()
+                .build();
+    }
+
+    public static MessageCreateData generateExpenseDetailMessage(String authorId, int index) {
+        return new MessageCreateBuilder()
+                .addComponents(buildExpenseDetailContainer(index, authorId))
+                .useComponentsV2()
+                .build();
+    }
+
+    public static MessageCreateData generateDebtListMessage(String authorId, int page) {
+        return new MessageCreateBuilder()
+                .addComponents(buildDebtListContainer(page, authorId))
+                .useComponentsV2()
+                .build();
+    }
+
+    public static MessageCreateData generateDebtDetailMessage(String authorId, int index, JDA jda) {
+        return new MessageCreateBuilder()
+                .addComponents(buildDebtDetailContainer(index, authorId, jda))
+                .useComponentsV2()
+                .build();
+    }
+
+    public static Container buildExpenseListContainer(List<ExpenseData> expenses, int page, String authorId) {
+        int totalPages = (int) Math.ceil((double) expenses.size() / ITEMS_PER_PAGE);
+        int startIndex = page * ITEMS_PER_PAGE;
+
+        List<ContainerChildComponent> components = new ArrayList<>();
+
+        components.add(TextDisplay.of("## List of All Expenses"));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+
+        //Add Text Display for current filter here
+
+        Function<ExpenseData, String> formatter = (expense) -> String.format(
+                "**%s** - %s\nPaid by <@%s> | ID: `%s`\n\n",
+                expense.getName(),
+                CurrencyUtils.formatAsUSD(expense.getAmount()),
+                expense.getPayerId(),
+                expense.getId()
+        );
+
+        for (int i = 0; i < ITEMS_PER_PAGE && (startIndex + i) < expenses.size(); i++) {
+            ExpenseData expense = expenses.get(startIndex + i);
+            components.add(TextDisplay.of(formatter.apply(expense)));
+            components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, "expense-list-zoom:" + authorId + ":" + expense.getId(), "Details")));
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        }
+
+        components.add(TextDisplay.of("-# Page " + (page + 1) + " of " + totalPages));
+        components.add(buildExpenseListActionRow(expenses, authorId, page));
+
+        return Container.of(components);
+    }
+
+    private static ActionRow buildExpenseListActionRow(List<ExpenseData> expenses, String authorId, int page) {
+        int totalPages = (int) Math.ceil((double) expenses.size() / ITEMS_PER_PAGE);
+
+        Button prev = Button.secondary("expense-list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
+        Button next = Button.secondary("expense-list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
+
+        return ActionRow.of(prev, next);
+    }
+
+    public static Container buildExpenseDetailContainer(int index, String authorId) {
+        ExpenseData expense = getExpenseById(index);
+
+        if (expense == null) {
+            log.error("Could not find Expense # {} to show Details.", index);
+            return buildExpenseListContainer(ExpenseManager.getExpensesSorted(), 0, authorId);
+        }
+
+        List<ContainerChildComponent> components = new ArrayList<>();
+
+        components.add(TextDisplay.of("## Expense Details: " + expense.getName()));
+
+        double share = expense.getBeneficiaryIds().isEmpty()
+                ? 0.0
+                : expense.getAmount() / expense.getBeneficiaryIds().size();
+
+        components.add(TextDisplay.of("### Total Amount: " + CurrencyUtils.formatAsUSD(expense.getAmount())));
+        components.add(TextDisplay.of("### Paid By: <@" + expense.getPayerId() + ">"));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("### Share per Person: " + CurrencyUtils.formatAsUSD(share)));
+        components.add(TextDisplay.of("### Beneficiaries: " + expense.getBeneficiaryIds().size()));
+
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("-# Expense ID: " + expense.getId()));
+        components.add(ActionRow.of(
+                Button.primary("expense-edit:" + authorId + ":" + index, "Edit"),
+                Button.danger("expense-detail-back:" + authorId, "List")
+        ));
+
+        return Container.of(components);
+    }
+
+    private static Container buildDebtListContainer(int page, String authorId) {
         List<Debt> outstandingDebts = getOutstandingDebts();
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Outstanding Debts");
-        embed.setColor(Color.RED);
-        embed.setTimestamp(Instant.now());
+        int totalPages = (int) Math.ceil((double) outstandingDebts.size() / ITEMS_PER_PAGE);
+        int startIndex = page * ITEMS_PER_PAGE;
+
+        List<ContainerChildComponent> components = new ArrayList<>();
+
+        components.add(TextDisplay.of("## List of All Outstanding Debts"));
 
         if (outstandingDebts.isEmpty())
-            embed.setDescription("All debts are settled! There are no outstanding payments.");
+            components.add(TextDisplay.of("All debts are settled! There are no outstanding payments."));
         else {
-            StringBuilder description = new StringBuilder("Here is the current list of unpaid debts. The creditor should run `/debt markpaid` once they receive payment.\n\n");
+            components.add(TextDisplay.of("Here is the current list of unpaid debts. The creditor should run `/debt markpaid` once they receive payment."));
             for (Debt debt : outstandingDebts) {
-                description.append(String.format(
+                components.add(TextDisplay.of(String.format(
                         "• <@%s> owes <@%s> **%s**\n  (ID: `%d`)\n",
                         debt.getDebtorId(),
                         debt.getCreditorId(),
                         CurrencyUtils.formatAsUSD(debt.getAmount()),
                         debt.getDebtId()
-                ));
+                )));
             }
-            embed.setDescription(description.toString());
         }
 
-        return new MessageCreateBuilder()
-                .addEmbeds(embed.build())
-                .build();
+        components.add(TextDisplay.of("-# Page " + (page + 1) + " of " + totalPages));
+
+        return Container.of(components);
     }
 
-    //New Methods
+    private static Container buildDebtDetailContainer(int index, String authorId, JDA jda) {
+        Debt debt = getDebtById(index);
 
-    public static MessageCreateData editExpenseListView(String authorId, int page) {
-        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted();
-        return new MessageCreateBuilder()
-                .addEmbeds(createExpenseListEmbed(expenses, page).build())
-                .setComponents(buildExpenseListActionRow(expenses, authorId, page))
-                .build();
-    }
+        User debtor = jda.retrieveUserById(debt.getDebtorId()).complete();
+        User creditor = jda.retrieveUserById(debt.getCreditorId()).complete();
+        //Event event = EventManager.getEventById(debt.getEventId());
 
-    public static MessageCreateData editDebtListView(String authorId, int page) {
-        List<Debt> debts = ExpenseManager.getOutstandingDebts();
-        return new MessageCreateBuilder()
-                .addEmbeds(createDebtListEmbed(debts, page).build())
-                .setComponents(buildDebtListActionRow(debts, authorId, page))
-                .build();
-    }
+        List<ContainerChildComponent> components = new ArrayList<>();
 
-    public static MessageCreateData editExpenseDetailView(String authorId, int index) {
-        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted();
-        ExpenseData expense = expenses.get(index);
-        EmbedBuilder embed = expense.createEmbed()
-                .setFooter("Displaying expense " + (index + 1) + " of " + expenses.size());
-        return new MessageCreateBuilder()
-                .addEmbeds(embed.build())
-                .setComponents(buildExpenseDetailActionRow(expenses, authorId, index))
-                .build();
-    }
+        components.add(TextDisplay.of("## Debt Details: " + debtor.getName() + " → " + creditor.getName()));
+        components.add(TextDisplay.of("Amount Owed\n" + CurrencyUtils.formatAsUSD(debt.getAmount())));
 
-    public static MessageCreateData editDebtDetailView(String authorId, int index, JDA jda) {
-        List<Debt> debts = ExpenseManager.getOutstandingDebts();
-        Debt debt = debts.get(index);
-        EmbedBuilder embed = debt.createEmbed(jda)
-                .setFooter("Displaying debt " + (index + 1) + " of " + debts.size());
-        return new MessageCreateBuilder()
-                .addEmbeds(embed.build())
-                .setComponents(buildDebtDetailActionRow(debts, authorId, index))
-                .build();
-    }
-
-    private static EmbedBuilder createExpenseListEmbed(List<ExpenseData> expenses, int page) {
-        final int itemsPerPage = 5;
-        int totalPages = (int) Math.ceil((double) expenses.size() / itemsPerPage);
-        int startIndex = page * itemsPerPage;
-
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("List of All Expenses");
-        embed.setColor(Color.MAGENTA);
-        embed.setFooter("Page " + (page + 1) + " of " + totalPages);
-
-        Function<ExpenseData, String> formatter = (expense) -> String.format(
-                "**%s** - %s\nPaid by <@%s> | ID: `%s`\n\n",
-                expense.name,
-                CurrencyUtils.formatAsUSD(expense.amount),
-                expense.payerId,
-                expense.expenseId
-        );
-
-        StringBuilder description = new StringBuilder();
-        for (int i = 0; i < itemsPerPage && (startIndex + i) < expenses.size(); i++) {
-            ExpenseData expense = expenses.get(startIndex + i);
-            description.append(formatter.apply(expense)).append("\n");
-        }
-        embed.setDescription(description.toString());
-        return embed;
-    }
-
-    private static EmbedBuilder createDebtListEmbed(List<Debt> debts, int page) {
-        final int itemsPerPage = 5;
-        int totalPages = (int) Math.ceil((double) debts.size() / itemsPerPage);
-        int startIndex = page * itemsPerPage;
-
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Outstanding Debts");
-        embed.setColor(Color.MAGENTA);
-        embed.setFooter("Page " + (page + 1) + " of " + totalPages);
-
-        Function<ExpenseData, String> formatter = (expense) -> String.format(
-                "**%s** - %s\nPaid by <@%s> | ID: `%s`\n\n",
-                expense.name,
-                CurrencyUtils.formatAsUSD(expense.amount),
-                expense.payerId,
-                expense.expenseId
-        );
-
-        StringBuilder description = new StringBuilder();
-        for (int i = 0; i < itemsPerPage && (startIndex + i) < debts.size(); i++) {
-            Debt debt = debts.get(startIndex + i);
-            description.append(String.format("`%d`: <@%s> owes <@%s> **%s**\n",
-                    debt.getDebtId(), debt.getDebtorId(), debt.getCreditorId(), CurrencyUtils.formatAsUSD(debt.getAmount())));
-        }
-        embed.setDescription(description.toString());
-        return embed;
-    }
-
-    private static List<ActionRow> buildExpenseListActionRow(List<ExpenseData> expenses, String authorId, int page) {
-        int totalPages = (int) Math.ceil((double) expenses.size() / 5.0);
-        int expenseIndex = page * 5;
-
-        Button prev = Button.secondary("expense-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
-        Button next = Button.secondary("expense-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
-
-        Builder menu = StringSelectMenu.create("expense-list-zoom:" + authorId)
-                .setPlaceholder("View details for a specific expense...");
-
-        int startIndex = page * 5;
-        for (int i = 0; i < 5 && (startIndex + i) < expenses.size(); i++) {
-            ExpenseData expense = expenses.get(startIndex + i);
-            menu.addOption(expense.getName(), String.valueOf(startIndex + i));
+        List<PaymentInfo> paymentInfos = ExpenseManager.getPaymentInfoForUser(debt.getCreditorId());
+        if (paymentInfos.isEmpty())
+            components.add(TextDisplay.of("This user has not added any payment information."));
+        else {
+            components.add(TextDisplay.of("How to Pay " + creditor.getName()));
+            for (PaymentInfo info : paymentInfos) {
+                components.add(TextDisplay.of(String.format("**%s:** `%s`\n", info.getAppName(), info.getDetail())));
+            }
         }
 
-        return List.of(ActionRow.of(prev, next), ActionRow.of(menu.build()));
+        return Container.of(components);
     }
 
-    private static List<ActionRow> buildExpenseDetailActionRow(List<ExpenseData> expenses, String authorId, int index) {
-        int page = index / 5;
+    public static Container buildPaymentInfoDetailContainer() {
+        SettlementResult result = calculateSettlement();
 
-        Button prev = Button.secondary("expense-detail-prev:" + authorId + ":" + index, "◀️ Previous Expense").withDisabled(index == 0);
-        Button next = Button.secondary("expense-detail-next:" + authorId + ":" + index, "Next Expense ▶️").withDisabled(index >= expenses.size() - 1);
-        Button back = Button.danger("expense-detail-back:" + authorId + ":" + page, "Back to List");
+        List<ContainerChildComponent> components = new ArrayList<>();
 
-        return List.of(ActionRow.of(prev, next), ActionRow.of(back));
-    }
+        components.add(TextDisplay.of("## Settlement Plan"));
 
-    private static List<ActionRow> buildDebtListActionRow(List<Debt> debts, String authorId, int page) {
-        int totalPages = (int) Math.ceil((double) debts.size() / 5.0);
+        if (result.newDebts().isEmpty()) {
+            if (result.expensesProcessedCount() > 0) {
+                components.add(TextDisplay.of("All " + result.expensesProcessedCount() + " unsettled expenses for this event have been calculated and balanced out.\nNo new payments are needed!"));
+            } else {
+                components.add(TextDisplay.of("There were no new expenses to settle for this event."));
+            }
+        } else {
+            if (result.expensesProcessedCount() == 1) {
+                components.add(TextDisplay.of("A new payment plan has been generated. **The 1 expense included in this calculation is now considered settled** and will not be part of future settlements."));
+            } else {
+                components.add(TextDisplay.of("A new payment plan has been generated. **The " + result.expensesProcessedCount() + " expenses included in this calculation are now considered settled** and will not be part of future settlements."));
+            }
 
-        Button prev = Button.secondary("debt-list-prev:" + authorId + ":" + page, "◀️ Previous Page").withDisabled(page == 0);
-        Button next = Button.secondary("debt-list-next:" + authorId + ":" + page, "Next Page ▶️").withDisabled(page >= totalPages - 1);
+            StringBuilder paymentPlan = new StringBuilder();
+            for(Debt debt : result.newDebts()) {
+                components.add(TextDisplay.of(String.format(
+                        "• <@%s> owes <@%s> **%s**\n",
+                        debt.getDebtorId(),
+                        debt.getCreditorId(),
+                        CurrencyUtils.formatAsUSD(debt.getAmount())
+                )));
+            }
 
-        Builder menu = StringSelectMenu.create("debt-list-zoom:" + authorId)
-                .setPlaceholder("View details for a specific debt...");
-
-        int startIndex = page * 5;
-        for (int i = 0; i < 5 && (startIndex + i) < debts.size(); i++) {
-            Debt debt = debts.get(startIndex + i);
-            menu.addOption(String.format("ID %d: ...owes... %s", debt.getDebtId(), CurrencyUtils.formatAsUSD(debt.getAmount())), String.valueOf(startIndex + i));
+            components.add(TextDisplay.of("-# What's next? Use /debt list and /debt markpaid to complete payments."));
         }
 
-        return List.of(ActionRow.of(prev, next), ActionRow.of(menu.build()));
-    }
+        Button explanationButton = Button.secondary("settleup-explain", "How is this calculated?")
+                .withEmoji(ArisannaBot.emojiLoadingArisanna);
 
-    private static List<ActionRow> buildDebtDetailActionRow(List<Debt> debts, String authorId, int index) {
-        int page = index / 5;
+        components.add(ActionRow.of(explanationButton));
 
-        Button prev = Button.secondary("debt-detail-prev:" + authorId + ":" + index, "◀️ Previous Debt").withDisabled(index == 0);
-        Button next = Button.secondary("debt-detail-next:" + authorId + ":" + index, "Next Debt ▶️").withDisabled(index >= debts.size() - 1);
-        Button back = Button.danger("debt-detail-back:" + authorId + ":" + page, "Back to List");
-
-        return List.of(ActionRow.of(prev, next), ActionRow.of(back));
+        return Container.of(components);
     }
 
 }

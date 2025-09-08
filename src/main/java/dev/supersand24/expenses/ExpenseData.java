@@ -11,12 +11,12 @@ import java.util.List;
 
 public class ExpenseData implements Identifiable {
 
-    public transient long expenseId;
+    private transient long expenseId;
     private long eventId;
-    public String name;
-    public double amount;
-    public String payerId;
-    public List<String> beneficiaryIds = new ArrayList<>();
+    private String name;
+    private double amount;
+    private String payerId;
+    private List<String> beneficiaryIds = new ArrayList<>();
     private long timestamp;
 
     private boolean isSettled = false;
@@ -31,37 +31,17 @@ public class ExpenseData implements Identifiable {
         this.timestamp = System.currentTimeMillis();
     }
 
+    public long getId() { return expenseId; }
+    @Override public void setId(long id) {
+        expenseId = id;
+    }
     public long getEventId() { return eventId; }
     public String getName() { return name; }
+    public double getAmount() { return amount; }
+    public String getPayerId() { return payerId; }
+    public List<String> getBeneficiaryIds() { return beneficiaryIds; }
     public long getTimestamp() { return timestamp; }
     public boolean isSettled() { return isSettled; }
     public void setSettled() { isSettled = true; }
 
-    @Override
-    public void setId(long id) {
-        expenseId = id;
-    }
-
-    public EmbedBuilder createEmbed() {
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(Color.ORANGE);
-        embed.setTitle("Expense Details");
-        embed.setTimestamp(Instant.ofEpochMilli(timestamp));
-
-        embed.setDescription("### " + name);
-
-        double share = beneficiaryIds.isEmpty()
-                ? 0.0
-                : amount / beneficiaryIds .size();
-
-        embed.addField("Total Amount", CurrencyUtils.formatAsUSD(amount), true);
-        embed.addField("Paid By", "<@" + payerId + ">", true);
-        embed.addBlankField(true);
-        embed.addField("Share per Person", CurrencyUtils.formatAsUSD(share), true);
-        embed.addField("Beneficiaries", String.valueOf(beneficiaryIds.size()), true);
-        embed.addBlankField(true);
-        embed.addField("Expense ID", "`" + expenseId + "`", false);
-
-        return embed;
-    }
 }
