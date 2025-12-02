@@ -2,6 +2,7 @@ package dev.supersand24.expenses;
 
 import dev.supersand24.*;
 import dev.supersand24.events.Event;
+import dev.supersand24.events.EventManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -9,9 +10,14 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -82,28 +88,46 @@ public class ExpenseManager {
         return getExpensesMap().containsKey(key);
     }
 
-    public static String getName(long key) {
-        ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            return expense.getName();
-        } else {
-            log.error("Expense " + key + " does not exist.");
-            return "???";
-        }
+    public static void linkExpenseToEvent(long index, long newEventId) {
+        ExpenseData expense = getExpenseById(index);
+        expense.setEventId(newEventId);
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
     }
 
-    public static void addBenefactors(long key, List<String> benefactorIds) {
+    public static String getExpenseName(long index) {
+        ExpenseData expense = getExpenseById(index);
+        return expense == null ? "???" : expense.getName();
+    }
+
+    public static void setExpenseName(long index, String newName) {
+        ExpenseData expense = getExpenseById(index);
+        expense.setName(newName);
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+    }
+
+    public static void setExpenseAmount(long index, double newAmount) {
+        ExpenseData expense = getExpenseById(index);
+        expense.setAmount(newAmount);
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+    }
+
+    public static void setExpenseLinkedEvent(long index, Event newEvent) {
+        ExpenseData expense = getExpenseById(index);
+        expense.setEventId(newEvent.getId());
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+    }
+
+    public static void setExpensePayer(long index, String newPayerId) {
+        ExpenseData expense = getExpenseById(index);
+        expense.setPayerId(newPayerId);
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+    }
+
+    public static void addBenefactors(long key, List<User> benefactorIds) {
         ExpenseData expense = getExpensesMap().get(key);
-        if (expense != null) {
-            for (String id : benefactorIds) {
-                if (!expense.getBeneficiaryIds().contains(id)) {
-                    expense.getBeneficiaryIds().add(id);
-                    DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
-                }
-            }
-        } else {
-            log.error("Expense " + key + " does not exist.");
-        }
+        for (User user : benefactorIds)
+            expense.addBeneficiaryId(user.getId());
+        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
     }
 
     public static List<ExpenseData> getExpensesSorted() {
@@ -333,6 +357,13 @@ public class ExpenseManager {
                 .build();
     }
 
+    public static MessageCreateData generateExpenseEditMessage(String authorId, int index) {
+        return new MessageCreateBuilder()
+                .addComponents(buildExpenseEditContainer(index, authorId))
+                .useComponentsV2()
+                .build();
+    }
+
     public static MessageCreateData generateDebtListMessage(String authorId, int page) {
         return new MessageCreateBuilder()
                 .addComponents(buildDebtListContainer(page, authorId))
@@ -415,6 +446,57 @@ public class ExpenseManager {
         components.add(ActionRow.of(
                 Button.primary("expense-edit:" + authorId + ":" + index, "Edit"),
                 Button.danger("expense-detail-back:" + authorId, "List")
+        ));
+
+        return Container.of(components);
+    }
+
+    public static Container buildExpenseEditContainer(int index, String authorId) {
+        ExpenseData expense = getExpenseById(index);
+
+        if (expense == null) {
+            log.error("Could not find Expense # {} to show Details.", index);
+            return buildExpenseListContainer(ExpenseManager.getExpensesSorted(), 0, authorId);
+        }
+
+        List<ContainerChildComponent> components = new ArrayList<>();
+
+        components.add(TextDisplay.of("## Editing Expense # " + expense.getId()));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("Click on the different buttons/drop downs to edit values for this event."));
+        components.add(ActionRow.of(
+                Button.secondary("expense-edit-name:" + authorId + ":" + expense.getId(), "Name"),
+                Button.secondary("expense-edit-amount:" + authorId + ":" + expense.getId(), "Amount"),
+                Button.secondary("expense-edit-event:" + authorId + ":" + expense.getId(), "Linked Event")
+        ));
+
+        components.add(TextDisplay.of("Payer"));
+        EntitySelectMenu.Builder payerMenu = EntitySelectMenu.create(
+                "expense-edit-payer:" + authorId + ":" + expense.getId(),
+                EntitySelectMenu.SelectTarget.USER
+        );
+        if (!expense.getPayerId().isEmpty())
+            payerMenu.setDefaultValues(EntitySelectMenu.DefaultValue.user(expense.getPayerId()));
+        components.add(ActionRow.of(payerMenu.build()));
+
+        components.add(TextDisplay.of("Beneficiary"));
+        EntitySelectMenu.Builder beneficiaryMenu = EntitySelectMenu.create(
+                "expense-edit-beneficiary:" + authorId + ":" + expense.getId(),
+                EntitySelectMenu.SelectTarget.USER
+        );
+        beneficiaryMenu.setMaxValues(EntitySelectMenu.OPTIONS_MAX_AMOUNT);
+
+        List<EntitySelectMenu.DefaultValue> defaults = expense.getBeneficiaryIds().stream()
+                .map(EntitySelectMenu.DefaultValue::user)
+                .toList();
+        beneficiaryMenu.setDefaultValues(defaults);
+        components.add(ActionRow.of(beneficiaryMenu.build()));
+
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(ActionRow.of(
+                Button.primary("expense-edit-view:" + authorId + ":" + expense.getId(), "View Expense"),
+                Button.secondary("expense-edit-view-list:" + authorId + ":" + expense.getId(), "View List"),
+                Button.danger("expense-edit-delete:" + authorId + ":" + expense.getId(), "Delete Expense")
         ));
 
         return Container.of(components);
@@ -513,6 +595,53 @@ public class ExpenseManager {
         components.add(ActionRow.of(explanationButton));
 
         return Container.of(components);
+    }
+
+    public static Modal generateEditExpenseNameModal(int index) {
+        ExpenseData expense = getExpenseById(index);
+
+        return Modal.create("expense-edit-name:" + index, "Edit Name of Expense # " + expense.getId())
+                .addComponents(ActionRow.of(TextInput.create("name", "Name", TextInputStyle.SHORT)
+                        .setPlaceholder(expense.getName())
+                        .build()))
+                .build();
+    }
+
+    public static Modal generateEditExpenseAmountModal(int index) {
+        ExpenseData expense = getExpenseById(index);
+
+        return Modal.create("expense-edit-amount:" + index, "Edit Amount of Expense # " + expense.getId())
+                .addComponents(ActionRow.of(TextInput.create("amount", "Amount", TextInputStyle.SHORT)
+                        .setPlaceholder(CurrencyUtils.formatAsUSD(expense.getAmount()))
+                        .build()))
+                .build();
+    }
+
+    public static Modal generateEditExpenseEventLinkedModal(int index) {
+        ExpenseData expense = getExpenseById(index);
+
+        String placeholder = expense.getEventId() == 0 ? "No Event" : EventManager.getEventName(expense.getEventId());
+
+        return Modal.create("expense-edit-event:" + index, "Set Linked Event of Expense # " + expense.getId())
+                .addComponents(ActionRow.of(TextInput.create("event", "Event", TextInputStyle.SHORT)
+                        .setPlaceholder(placeholder)
+                        .build()))
+                .build();
+    }
+
+    public static Modal generateDeleteExpenseModel(int index) {
+        ExpenseData expense = getExpenseById(index);
+
+        if (expense == null) {
+            log.error("Could not find Expense # {} to Delete.", index);
+            return null;
+        }
+
+        return Modal.create("event-edit-delete:" + index, "Delete Event # " + expense.getId())
+                .addComponents(ActionRow.of(TextInput.create("name", "Enter Event Name to Confirm Deletion.", TextInputStyle.SHORT)
+                        .setPlaceholder(expense.getName())
+                        .build()))
+                .build();
     }
 
 }

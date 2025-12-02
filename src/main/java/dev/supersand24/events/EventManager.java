@@ -1,5 +1,6 @@
 package dev.supersand24.events;
 
+import dev.supersand24.ArisannaBot;
 import dev.supersand24.DataPartition;
 import dev.supersand24.DataStore;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -12,6 +13,7 @@ import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -99,6 +101,11 @@ public class EventManager {
         Event event = getEventById(index);
         event.setRoleId(newRoleId);
         DataStore.markDirty(DATA_STORE_NAME);
+    }
+
+    public static Role getRole(long index) {
+        Event event = getEventById(index);
+        return ArisannaBot.getAriGuild().getRoleById(event.getRoleId());
     }
 
     public static void setChannelId(long index, long newChannelId) {
@@ -251,7 +258,6 @@ public class EventManager {
                 Button.secondary("event-edit-view-list:" + authorId + ":" + event.getId(), "View List"),
                 Button.danger("event-edit-delete:" + authorId + ":" + event.getId(), "Delete Event")
         ));
-
 
         return Container.of(components);
     }

@@ -11,11 +11,14 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import dev.supersand24.counters.CounterManager;
+import dev.supersand24.events.Event;
 import dev.supersand24.events.EventManager;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.ExpenseManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.actionrow.ActionRowChildComponent;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
@@ -46,13 +49,6 @@ import net.dv8tion.jda.api.interactions.commands.Command;
 public class Listener extends ListenerAdapter {
 
     private final Logger log = LoggerFactory.getLogger(Listener.class);
-
-    private final Map<String, Long> SELF_ASSIGNABLE_ROLES = Map.of(
-            "ascent-boston", 1357375256498802900L,
-            "ascent-niagara-falls", 1389686731565174884L,
-            "ascent-los-angeles", 1389686814813720647L,
-            "ascent-las-vegas", 1389686984431239319L
-    );
 
     @Override
     public void onReady(ReadyEvent e) {
@@ -213,7 +209,7 @@ public class Listener extends ListenerAdapter {
                         e.getHook().sendMessageComponents(ExpenseManager.buildPaymentInfoDetailContainer())
                                 .useComponentsV2()
                                 .queue();
-                    }=
+                    }
                 }
             }
             case "payment" -> {
@@ -265,22 +261,25 @@ public class Listener extends ListenerAdapter {
             }
             case "roles" -> {
 
-                Builder menu = StringSelectMenu.create("role-select-menu")
-                        .setPlaceholder("Select the roles you want...")
-                        .setRequiredRange(0, SELF_ASSIGNABLE_ROLES.size());
+                List<Event> events = new ArrayList<>();
+                long today = LocalDate.now().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
+                for (Event event : EventManager.getAllEvents()) {
+                    if (event.getStartDate() > today)
+                        events.add(event);
+                }
 
-                menu.addOption("Ascent Boston", "ascent-boston", "If you are interested in going to Ascent Boston.");
-                menu.addOption("Ascent Niagara Falls", "ascent-niagara-falls", "If you are interested in going to Ascent Niagara Falls.");
-                menu.addOption("Ascent Los Angeles", "ascent-los-angeles", "If you are interested in going to Ascent Los Angeles.");
-                menu.addOption("Ascent Las Vegas", "ascent-las-vegas", "If you are interested in going to Ascent Las Vegas.");
+                List<ActionRowChildComponent> buttons = new ArrayList<>();
+                for (Event event : events) {
+                    buttons.add(Button.secondary("role-select:" + event.getId(), event.getName()));
+                }
 
                 e.reply("Sending Role Selection now!").setEphemeral(true).queue();
 
                 Container container = Container.of(
                         TextDisplay.of("## Role Selection"),
                         Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("Select any roles you'd like to receive from the dropdown menu below. Selecting a role you already have will remove it."),
-                        ActionRow.of(menu.build())
+                        TextDisplay.of("Select which events you will be attending using the buttons below.  Selecting an event you already have a role for will remove it."),
+                        ActionRow.of(buttons)
                 );
 
                 e.getChannel().sendMessageComponents(container)
@@ -399,62 +398,7 @@ public class Listener extends ListenerAdapter {
         String prefix = parts[0];
         String authorId = parts.length > 1 ? parts[1] : "";
 
-        if (prefix.equals("role-select-menu")) {
-            Member member = e.getMember();
-            Guild guild = e.getGuild();
-            if (member == null || guild == null) return;
-
-            e.deferReply(true).queue();
-
-            List<Role> currentMemberRoles = member.getRoles();
-            List<String> selectedRoleValues = e.getValues();
-
-            List<Role> allPossibleRoles = SELF_ASSIGNABLE_ROLES.values().stream()
-                    .map(guild::getRoleById)
-                    .filter(Objects::nonNull)
-                    .toList();
-
-            List<Role> rolesToAdd = new ArrayList<>();
-            List<Role> rolesToRemove = new ArrayList<>();
-
-            for (Role role : allPossibleRoles) {
-                boolean wasSelected = selectedRoleValues.contains(getRoleKey(role.getIdLong()));
-                boolean hasRole = currentMemberRoles.contains(role);
-
-                if (wasSelected != hasRole && !guild.getSelfMember().canInteract(role)) {
-                    e.getHook().sendMessage("I don't have permissions to manage the `" + role.getName() + "` role. Please contact an admin to check my role position.").setEphemeral(true).queue();
-                    return;
-                }
-
-                if (wasSelected && !hasRole) {
-                    rolesToAdd.add(role);
-                } else if (!wasSelected && hasRole) {
-                    rolesToRemove.add(role);
-                }
-
-            }
-
-            if (rolesToAdd.isEmpty() && rolesToRemove.isEmpty()) {
-                e.getHook().sendMessage("Your roles have not changed").setEphemeral(true).queue();
-                return;
-            }
-
-            guild.modifyMemberRoles(member, rolesToAdd, rolesToRemove).queue(
-                    success -> {
-                        StringBuilder response = new StringBuilder("I updated your roles!\n");
-                        if (!rolesToAdd.isEmpty()) {
-                            response.append(rolesToAdd.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was added.\n");
-                        }
-                        if (!rolesToRemove.isEmpty()) {
-                            response.append(rolesToRemove.stream().map(Role::getName).collect(Collectors.joining(", "))).append(" was removed.");
-                        }
-                        e.getHook().sendMessage(response.toString()).setEphemeral(true).queue();
-                    },
-                    error -> {
-                        e.getHook().sendMessage("I was unable to update your roles!").setEphemeral(true).queue();
-                    }
-            );
-        } else if (prefix.equals("event-list-zoom")) {
+        if (prefix.equals("event-list-zoom")) {
             if (!e.getUser().getId().equals(authorId)) {
                 e.reply("You cannot use these buttons.").setEphemeral(true).queue();
                 return;
@@ -480,14 +424,6 @@ public class Listener extends ListenerAdapter {
         }
     }
 
-    private String getRoleKey(long roleId) {
-        return SELF_ASSIGNABLE_ROLES.entrySet().stream()
-                .filter(entry -> entry.getValue().equals(roleId))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(null);
-    }
-
     @Override
     public void onEntitySelectInteraction(EntitySelectInteractionEvent e) {
         log.info("{} was interacted with.", e.getComponentId());
@@ -504,16 +440,14 @@ public class Listener extends ListenerAdapter {
                 return;
             }
 
-            List<String> beneficiaryIds = e.getMentions().getUsers().stream()
-                    .map(IMentionable::getId)
-                    .toList();
+            List<User> beneficiaries = e.getMentions().getUsers();
 
-            ExpenseManager.addBenefactors(expenseId, beneficiaryIds);
+            ExpenseManager.addBenefactors(expenseId, beneficiaries);
 
-            if (beneficiaryIds.size() == 1) {
-                e.reply("Added 1 person to " + ExpenseManager.getName(expenseId) + " expense.").setEphemeral(true).queue();
+            if (beneficiaries.size() == 1) {
+                e.reply("Added 1 person to " + ExpenseManager.getExpenseName(expenseId) + " expense.").setEphemeral(true).queue();
             } else {
-                e.reply("Added " + beneficiaryIds.size() + " people to " + ExpenseManager.getName(expenseId) + " expense.").setEphemeral(true).queue();
+                e.reply("Added " + beneficiaries.size() + " people to " + ExpenseManager.getExpenseName(expenseId) + " expense.").setEphemeral(true).queue();
             }
         }
         else if (prefix.equals("event-edit-channel")) {
@@ -539,6 +473,30 @@ public class Listener extends ListenerAdapter {
             int index = Integer.parseInt(parts[2]);
             EventManager.setRoleId(index, e.getMentions().getRoles().getFirst().getIdLong());
             e.reply("Role Updated").setEphemeral(true).queue();
+        }
+        else if (prefix.equals("expense-edit-payer")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            int index = Integer.parseInt(parts[2]);
+            ExpenseManager.setExpensePayer(index, e.getMentions().getUsers().getFirst().getId());
+            e.reply("Payer Updated").setEphemeral(true).queue();
+        }
+        else if (prefix.equals("expense-edit-beneficiary")) {
+            String authorId = parts[1];
+
+            if (!e.getUser().getId().equals(authorId)) {
+                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+                return;
+            }
+
+            int index = Integer.parseInt(parts[2]);
+            ExpenseManager.addBenefactors(index, e.getMentions().getUsers());
+            e.reply("Benefactors Updated").setEphemeral(true).queue();
         }
     }
 
@@ -591,7 +549,8 @@ public class Listener extends ListenerAdapter {
                         .useComponentsV2()
                         .queue();
 
-            } else if (prefix.startsWith("event-edit-")) {
+            }
+            else if (prefix.startsWith("event-edit-")) {
 
                 int index = Integer.parseInt(parts[2]);
 
@@ -607,21 +566,21 @@ public class Listener extends ListenerAdapter {
                         else
                             e.replyModal(modal).queue();
                     }
-                    case "event-edit-view" ->
-                        e.editComponents(EventManager.buildDetailContainer(index, authorId))
-                                .useComponentsV2()
-                                .queue();
+                    case "event-edit-view" -> e.editComponents(EventManager.buildDetailContainer(index, authorId))
+                            .useComponentsV2()
+                            .queue();
                     case "event-edit-view-list" ->
-                        e.editComponents(EventManager.buildListContainer(EventManager.getAllEvents(), 0, authorId))
-                                .useComponentsV2()
-                                .queue();
+                            e.editComponents(EventManager.buildListContainer(EventManager.getAllEvents(), 0, authorId))
+                                    .useComponentsV2()
+                                    .queue();
                     default -> {
                         log.error("Unexpected Event Edit Button Pressed!");
                         e.reply("Something went wrong!").setEphemeral(true).queue();
                     }
                 }
 
-            } else {
+            }
+            else {
 
                 e.deferEdit().queue();
 
@@ -658,29 +617,69 @@ public class Listener extends ListenerAdapter {
                 return;
             }
 
-            e.deferEdit().queue();
+            if (prefix.equals("expense-edit")) {
 
-            MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+                int index = Integer.parseInt(parts[2]);
+                e.editComponents(ExpenseManager.generateExpenseEditMessage(authorId, index).getComponents())
+                        .useComponentsV2()
+                        .queue();
 
-            switch (prefix) {
-                case "expense-list-prev", "expense-list-next" -> {
-                    int currentPage = Integer.parseInt(parts[2]);
-                    int newPage = prefix.equals("expense-list-next") ? currentPage + 1 : currentPage - 1;
-                    data = ExpenseManager.generateExpenseListMessage(authorId, newPage);
+            } else if (prefix.startsWith("expense-edit-")) {
+
+                int index = Integer.parseInt(parts[2]);
+
+                switch (prefix) {
+                    case "expense-edit-name" -> e.replyModal(ExpenseManager.generateEditExpenseNameModal(index)).queue();
+                    case "expense-edit-amount" -> e.replyModal(ExpenseManager.generateEditExpenseAmountModal(index)).queue();
+                    case "expense-edit-event" -> e.replyModal(ExpenseManager.generateEditExpenseEventLinkedModal(index)).queue();
+                    case "expense-edit-delete" -> {
+                        Modal modal = ExpenseManager.generateDeleteExpenseModel(index);
+                        if (modal == null)
+                            e.reply("Could not delete non existing expense!").setEphemeral(true).queue();
+                        else
+                            e.replyModal(modal).queue();
+                    }
+                    case "expense-edit-view" -> e.editComponents(ExpenseManager.buildExpenseDetailContainer(index, authorId))
+                            .useComponentsV2()
+                            .queue();
+                    case "expense-edit-view-list" ->
+                            e.editComponents(ExpenseManager.buildExpenseListContainer(ExpenseManager.getExpensesSorted(), 0, authorId))
+                                    .useComponentsV2()
+                                    .queue();
+                    default -> {
+                        log.error("Unexpected Expense Edit Button Pressed!");
+                        e.reply("Something went wrong!").setEphemeral(true).queue();
+                    }
                 }
-                case "expense-list-zoom" -> {
-                    int index = Integer.parseInt(parts[2]);
-                    data = ExpenseManager.generateExpenseDetailMessage(authorId, index);
+
+            }
+            else {
+
+                e.deferEdit().useComponentsV2().queue();
+
+                MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+
+                switch (prefix) {
+                    case "expense-list-prev", "expense-list-next" -> {
+                        int currentPage = Integer.parseInt(parts[2]);
+                        int newPage = prefix.equals("expense-list-next") ? currentPage + 1 : currentPage - 1;
+                        data = ExpenseManager.generateExpenseListMessage(authorId, newPage);
+                    }
+                    case "expense-list-zoom" -> {
+                        int index = Integer.parseInt(parts[2]);
+                        data = ExpenseManager.generateExpenseDetailMessage(authorId, index);
+                    }
+                    case "expense-detail-back" -> {
+                        data = ExpenseManager.generateExpenseListMessage(authorId, 0);
+                    }
                 }
-                case "expense-detail-back" -> {
-                    data = ExpenseManager.generateExpenseListMessage(authorId, 0);
-                }
+
+                e.getHook().editOriginalComponents(data.getComponents())
+                        .useComponentsV2()
+                        .queue();
             }
 
-            e.getHook().editOriginalComponents(data.getComponents())
-                    .useComponentsV2()
-                    .queue();
-        }  else if (prefix.startsWith("debt-")) {
+        } else if (prefix.startsWith("debt-")) {
             String authorId = parts[1];
 
             if (!e.getUser().getId().equals(authorId)) {
@@ -716,6 +715,25 @@ public class Listener extends ListenerAdapter {
             e.getHook().editOriginalEmbeds(data.getEmbeds())
                     .setComponents(data.getComponents())
                     .queue();
+        } else if (prefix.startsWith("role-select")) {
+            String roleId = parts[1];
+            Role role = EventManager.getRole(Long.parseLong(roleId));
+
+            if (role == null) {
+                e.reply("Sorry there was an issue, I can't find the role you need!").setEphemeral(true).queue();
+                return;
+            }
+
+            Member member = e.getMember();
+            Guild guild = e.getGuild();
+            if (member == null || guild == null) return;
+
+            e.deferReply(true).queue();
+
+            if (member.getRoles().contains(role))
+                guild.removeRoleFromMember(member, role).queue(unused -> e.getHook().sendMessage(role.getAsMention() + " was removed.").setSuppressedNotifications(true).setEphemeral(true).queue());
+            else
+                guild.addRoleToMember(member, role).queue(unused -> e.getHook().sendMessage(role.getAsMention() + " was added.").setSuppressedNotifications(true).setEphemeral(true).queue());
         }
     }
 
@@ -814,6 +832,67 @@ public class Listener extends ListenerAdapter {
                             e.reply("There was an issue deleting the event!").setEphemeral(true).queue();
                     }
                     else e.reply("That is not the correct event name!").setEphemeral(true).queue();
+                }
+            }
+        }
+        else if (prefix.startsWith("expense-edit-")) {
+            long expenseIndex = Long.parseLong(parts[1]);
+
+            switch (prefix) {
+                case "expense-edit-name" -> {
+                    boolean hasChanged = false;
+                    ModalMapping name = e.getValue("name");
+                    if (name != null) {
+                        ExpenseManager.setExpenseName(expenseIndex, name.getAsString());
+                        hasChanged = true;
+                    }
+                    e.reply(hasChanged ? "Name updated successfully!" : "No changes were made.").setEphemeral(true).queue();
+                }
+                case "expense-edit-amount" -> {
+                    ModalMapping name = e.getValue("amount");
+                    if (name != null) {
+                        try {
+                            double amount = Double.parseDouble(name.getAsString());
+                            ExpenseManager.setExpenseAmount(expenseIndex, amount);
+                            e.reply("Amount updated successfully!").setEphemeral(true).queue();
+                        } catch (NumberFormatException ex) {
+                            e.reply("Invalid format. Please enter a valid number (e.g., 12.34).").setEphemeral(true).queue();
+                        }
+                    }
+                }
+                case "expense-edit-event" -> {
+                    ModalMapping name = e.getValue("event");
+                    if (name != null) {
+                        String eventName = name.getAsString();
+                        Event event = null;
+
+                        for (Event eve : EventManager.getAllEvents()) {
+                            if (eventName.equals(eve.getName())) {
+                                event = eve;
+                                System.out.println("Cound VEvent");
+                            }
+                        }
+
+                        if (event == null) {
+                            e.reply("I could not find that event name.").setEphemeral(true).queue();
+                        }
+                        else
+                        {
+                            ExpenseManager.setExpenseLinkedEvent(expenseIndex, event);
+                            e.reply("Linked Event updated successfully!").setEphemeral(true).queue();
+                        }
+                    }
+                }
+                case "expense-edit-delete" -> {
+                    ModalMapping name = e.getValue("name");
+                    if (name == null) { e.reply("There was an issue deleting the expense!").setEphemeral(true).queue(); return; }
+                    if (name.getAsString().equals(ExpenseManager.getExpenseName(expenseIndex))) {
+                        if (EventManager.deleteEvent(expenseIndex))
+                            e.reply(name.getAsString() + " was deleted!").setEphemeral(true).queue();
+                        else
+                            e.reply("There was an issue deleting the expense!").setEphemeral(true).queue();
+                    }
+                    else e.reply("That is not the correct expense name!").setEphemeral(true).queue();
                 }
             }
         }
