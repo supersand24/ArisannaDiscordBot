@@ -1,8 +1,8 @@
 package dev.supersand24.events;
 
-import dev.supersand24.Identifiable;
+import dev.supersand24.IData;
 
-public class Event implements Identifiable {
+public class EventData implements IData {
 
     private transient long eventId;
     private String name;
@@ -13,7 +13,7 @@ public class Event implements Identifiable {
     private String address;
     private String omnidexLink;
 
-    public Event(String name) {
+    public EventData(String name) {
         this.name = name;
     }
 

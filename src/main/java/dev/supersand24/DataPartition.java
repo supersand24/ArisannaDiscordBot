@@ -3,7 +3,7 @@ package dev.supersand24;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DataPartition<T extends Identifiable> {
+public class DataPartition<T extends IData> {
 
     private long nextId = 1;
 

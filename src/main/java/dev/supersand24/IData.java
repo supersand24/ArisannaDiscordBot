@@ -1,6 +1,6 @@
 package dev.supersand24;
 
-public interface Identifiable {
+public interface IData {
 
     void setId(long id);
 

@@ -2,10 +2,9 @@ package dev.supersand24;
 
 import com.google.gson.reflect.TypeToken;
 import dev.supersand24.counters.CounterData;
-import dev.supersand24.events.Event;
-import dev.supersand24.expenses.Debt;
+import dev.supersand24.events.EventData;
+import dev.supersand24.expenses.DebtData;
 import dev.supersand24.expenses.ExpenseData;
-import dev.supersand24.expenses.ExpenseManager;
 import dev.supersand24.expenses.PaymentInfo;
 import dev.supersand24.voice.VoiceManager;
 import net.dv8tion.jda.api.JDA;
@@ -57,13 +56,13 @@ public class ArisannaBot {
         DataStore.register(
                 "debts",
                 "debts.json",
-                new TypeToken<DataPartition<Debt>>() {}.getType(),
+                new TypeToken<DataPartition<DebtData>>() {}.getType(),
                 DataPartition::new
         );
         DataStore.register(
                 "events",
                 "events.json",
-                new TypeToken<DataPartition<Event>>() {}.getType(),
+                new TypeToken<DataPartition<EventData>>() {}.getType(),
                 DataPartition::new
         );
 

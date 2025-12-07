@@ -7,5 +7,5 @@ import java.util.List;
  * @param newDebts The list of newly generated debts.
  * @param expensesProcessedCount The number of expenses included in this calculation.
  */
-public record SettlementResult(List<Debt> newDebts, int expensesProcessedCount) {
+public record SettlementResult(List<DebtData> newDebts, int expensesProcessedCount) {
 }

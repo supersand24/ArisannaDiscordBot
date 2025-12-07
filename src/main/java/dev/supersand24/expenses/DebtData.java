@@ -1,7 +1,7 @@
 package dev.supersand24.expenses;
 
 import dev.supersand24.CurrencyUtils;
-import dev.supersand24.Identifiable;
+import dev.supersand24.IData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.User;
@@ -9,7 +9,7 @@ import net.dv8tion.jda.api.entities.User;
 import java.awt.*;
 import java.util.List;
 
-public class Debt implements Identifiable {
+public class DebtData implements IData {
 
     private transient long debtId;
     private final long eventId;
@@ -18,7 +18,7 @@ public class Debt implements Identifiable {
     private final double amount;
     private boolean isPaid;
 
-    public Debt(long debtId, long eventId, String debtorId, String creditorId, double amount) {
+    public DebtData(long debtId, long eventId, String debtorId, String creditorId, double amount) {
         this.debtId = debtId;
         this.eventId = eventId;
         this.debtorId = debtorId;

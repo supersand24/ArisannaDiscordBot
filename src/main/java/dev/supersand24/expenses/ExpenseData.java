@@ -1,15 +1,11 @@
 package dev.supersand24.expenses;
 
-import dev.supersand24.CurrencyUtils;
-import dev.supersand24.Identifiable;
-import net.dv8tion.jda.api.EmbedBuilder;
+import dev.supersand24.IData;
 
-import java.awt.*;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExpenseData implements Identifiable {
+public class ExpenseData implements IData {
 
     private transient long expenseId;
     private long eventId;

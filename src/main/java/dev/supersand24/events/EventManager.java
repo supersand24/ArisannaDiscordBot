@@ -42,10 +42,10 @@ public class EventManager {
      * @param name The name of the new event (e.g., "PAX East 2025").
      */
     public static long createEvent(String name) {
-        DataPartition<Event> eventPartition = DataStore.get(DATA_STORE_NAME);
+        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
         long newId = eventPartition.getAndIncrementId();
-        Map<Long, Event> events = eventPartition.getData();
-        Event event = new Event(name);
+        Map<Long, EventData> events = eventPartition.getData();
+        EventData event = new EventData(name);
         event.setId(newId);
         events.put(newId, event);
         DataStore.markDirty(DATA_STORE_NAME);
@@ -57,8 +57,8 @@ public class EventManager {
      * @param eventId The ID of the event to find.
      * @return The Event object, or null if not found.
      */
-    private static Event getEventById(long eventId) {
-        DataPartition<Event> eventPartition = DataStore.get(DATA_STORE_NAME);
+    private static EventData getEventById(long eventId) {
+        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
         return eventPartition.getData().get(eventId);
     }
 
@@ -66,78 +66,78 @@ public class EventManager {
      * Retrieves a list of all created events, sorted by their ID.
      * @return A sorted list of all events.
      */
-    public static List<Event> getAllEvents() {
-        DataPartition<Event> eventPartition = DataStore.get(DATA_STORE_NAME);
+    public static List<EventData> getAllEvents() {
+        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
         return new ArrayList<>(eventPartition.getData().values())
                 .stream()
-                .sorted(Comparator.comparing(Event::getId))
+                .sorted(Comparator.comparing(EventData::getId))
                 .collect(Collectors.toList());
     }
 
     public static void setEventName(long index, String newName) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setName(newName);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static String getEventName(long index) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         return event == null ? "Unknown Event" : event.getName();
     }
 
     public static void setStartDate(long index, long newStartDate) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setStartDate(newStartDate);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static void setEndDate(long index, long newEndDate) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setEndDate(newEndDate);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static void setRoleId(long index, long newRoleId) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setRoleId(newRoleId);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static Role getRole(long index) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         return ArisannaBot.getAriGuild().getRoleById(event.getRoleId());
     }
 
     public static void setChannelId(long index, long newChannelId) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setChannelId(newChannelId);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static void setAddress(long index, String newAddress) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setAddress(newAddress);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static void setOmnidexLink(long index, String newOmnidexLink) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         event.setOmnidexLink(newOmnidexLink);
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
     public static boolean deleteEvent(long index) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
         if (event == null) return false;
-        DataPartition<Event> eventPartition = DataStore.get(DATA_STORE_NAME);
-        Map<Long, Event> events = eventPartition.getData();
+        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+        Map<Long, EventData> events = eventPartition.getData();
         events.remove(index);
         DataStore.markDirty(DATA_STORE_NAME);
         return true;
     }
 
     public static MessageCreateData generateListMessage(String authorId, int page) {
-        List<Event> events = EventManager.getAllEvents();
+        List<EventData> events = EventManager.getAllEvents();
         if (events.isEmpty()) {
             return new MessageCreateBuilder().setContent("No events found matching criteria.").build();
         }
@@ -147,7 +147,7 @@ public class EventManager {
                 .build();
     }
 
-    public static Container buildListContainer(List<Event> events, int page, String authorId) {
+    public static Container buildListContainer(List<EventData> events, int page, String authorId) {
         final int itemsPerPage = 5;
         int totalPages = (int) Math.ceil((double) events.size() / itemsPerPage);
         int startIndex = page * itemsPerPage;
@@ -160,7 +160,7 @@ public class EventManager {
         //Add Text Display for current filter here
 
         for (int i = 0; i < itemsPerPage && (startIndex + i) < events.size(); i++) {
-            Event event = events.get(startIndex + i);
+            EventData event = events.get(startIndex + i);
             components.add(TextDisplay.of("### " + event.getName()));
             components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, "event-list-zoom:" + authorId + ":" + event.getId(), "Details")));
             components.add(Separator.createDivider(Separator.Spacing.SMALL));
@@ -172,7 +172,7 @@ public class EventManager {
         return Container.of(components);
     }
 
-    private static ActionRow buildListActionRow(List<Event> events, String authorId, int page) {
+    private static ActionRow buildListActionRow(List<EventData> events, String authorId, int page) {
         int totalPages = (int) Math.ceil((double) events.size() / 5.0);
 
         Button prev = Button.secondary("event-list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
@@ -189,7 +189,7 @@ public class EventManager {
     }
 
     public static Container buildDetailContainer(int index, String authorId) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
 
         if (event == null) {
             log.error("Could not find Event # {} to show Details.", index);
@@ -226,7 +226,7 @@ public class EventManager {
     }
 
     public static Container generateEditContainer(int index, String authorId) {
-        Event event = getEventById(index);
+        EventData event = getEventById(index);
 
         List<ContainerChildComponent> components = new ArrayList<>();
 
@@ -263,7 +263,7 @@ public class EventManager {
     }
 
     public static Modal generateEditNameModal(int eventIndex) {
-        Event event = getEventById(eventIndex);
+        EventData event = getEventById(eventIndex);
 
         return Modal.create("event-edit-name:" + eventIndex, "Edit Name of Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("name", "Name", TextInputStyle.SHORT)
@@ -273,7 +273,7 @@ public class EventManager {
     }
 
     public static Modal generateEditDatesModal(int eventIndex) {
-        Event event = getEventById(eventIndex);
+        EventData event = getEventById(eventIndex);
 
         TextInput startDate = TextInput.create("start-date", "Starting Date", TextInputStyle.SHORT)
                 .setPlaceholder(event.getStartDate() > 0 ? longToDateString(event.getStartDate()) : "01/01/2020")
@@ -298,7 +298,7 @@ public class EventManager {
     }
 
     public static Modal generateEditAddressModal(int eventIndex) {
-        Event event = getEventById(eventIndex);
+        EventData event = getEventById(eventIndex);
 
         return Modal.create("event-edit-address:" + eventIndex, "Edit Address of Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("address", "Address", TextInputStyle.SHORT)
@@ -308,7 +308,7 @@ public class EventManager {
     }
 
     public static Modal generateEditOmnidexModal(int eventIndex) {
-        Event event = getEventById(eventIndex);
+        EventData event = getEventById(eventIndex);
 
         return Modal.create("event-edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("omnidex", "Omnidex", TextInputStyle.SHORT)
@@ -318,7 +318,7 @@ public class EventManager {
     }
 
     public static Modal generateDeleteEventModel(int eventIndex) {
-        Event event = getEventById(eventIndex);
+        EventData event = getEventById(eventIndex);
 
         if (event == null) {
             log.error("Could not find Event # {} to Delete.", eventIndex);

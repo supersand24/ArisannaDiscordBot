@@ -1,7 +1,7 @@
 package dev.supersand24.expenses;
 
 import dev.supersand24.*;
-import dev.supersand24.events.Event;
+import dev.supersand24.events.EventData;
 import dev.supersand24.events.EventManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
@@ -11,7 +11,6 @@ import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
-import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.textinput.TextInput;
@@ -54,8 +53,8 @@ public class ExpenseManager {
         return eventPartition.getData().get(expenseId);
     }
 
-    private static Map<Long, Debt> getDebtMap() {
-        DataPartition<Debt> debts = DataStore.get(DEBTS_DATA_STORE_NAME);
+    private static Map<Long, DebtData> getDebtMap() {
+        DataPartition<DebtData> debts = DataStore.get(DEBTS_DATA_STORE_NAME);
         return debts.getData();
     }
 
@@ -64,12 +63,12 @@ public class ExpenseManager {
      * @param debtId The ID of the event to find.
      * @return The Debt object, or null if not found.
      */
-    private static Debt getDebtById(long debtId) {
-        DataPartition<Debt> debtPartition = DataStore.get(DEBTS_DATA_STORE_NAME);
+    private static DebtData getDebtById(long debtId) {
+        DataPartition<DebtData> debtPartition = DataStore.get(DEBTS_DATA_STORE_NAME);
         return debtPartition.getData().get(debtId);
     }
 
-    public static long createExpense(String name, double amount, String payerId, Event event) {
+    public static long createExpense(String name, double amount, String payerId, EventData event) {
         DataPartition<ExpenseData> expensesHashMap = DataStore.get(EXPENSES_DATA_STORE_NAME);
         long newId = expensesHashMap.getAndIncrementId();
         Map<Long, ExpenseData> expenses = expensesHashMap.getData();
@@ -111,7 +110,7 @@ public class ExpenseManager {
         DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
     }
 
-    public static void setExpenseLinkedEvent(long index, Event newEvent) {
+    public static void setExpenseLinkedEvent(long index, EventData newEvent) {
         ExpenseData expense = getExpenseById(index);
         expense.setEventId(newEvent.getId());
         DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
@@ -204,7 +203,7 @@ public class ExpenseManager {
         }
 
         // Step 4: Generate and store new Debt objects via the simplification algorithm.
-        List<Debt> newDebts = new ArrayList<>();
+        List<DebtData> newDebts = new ArrayList<>();
         while (!debtors.isEmpty() && !creditors.isEmpty()) {
             Map.Entry<String, Double> debtorEntry = debtors.getFirst();
             Map.Entry<String, Double> creditorEntry = creditors.getFirst();
@@ -212,9 +211,9 @@ public class ExpenseManager {
 
             // Create a new persistent Debt object
 
-            DataPartition<Debt> debtsHashMap = DataStore.get("debts");
+            DataPartition<DebtData> debtsHashMap = DataStore.get("debts");
             long newDebtId = debtsHashMap.getAndIncrementId();
-            Debt newDebt = new Debt(newDebtId, 0, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
+            DebtData newDebt = new DebtData(newDebtId, 0, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
 
             // Store it in our main data store and add to a temporary list to return
             debtsHashMap.getData().put(newDebtId, newDebt);
@@ -242,15 +241,15 @@ public class ExpenseManager {
         return new SettlementResult(newDebts, processedCount);
     }
 
-    public static List<Debt> getOutstandingDebts() {
+    public static List<DebtData> getOutstandingDebts() {
         return getDebtMap().values().stream()
                 .filter(debt -> !debt.isPaid())
-                .sorted(Comparator.comparing(Debt::getDebtId))
+                .sorted(Comparator.comparing(DebtData::getDebtId))
                 .collect(Collectors.toList());
     }
 
     public static String markDebtAsPaid(long debtId, String actioningUserId) {
-        Debt debt = getDebtMap().get(debtId);
+        DebtData debt = getDebtMap().get(debtId);
         if (debt == null) return "This debt doesn't exist in my library!";
         if (debt.isPaid()) return "You already settled this debt.";
 
@@ -285,7 +284,7 @@ public class ExpenseManager {
                 embed.setDescription("A new payment plan has been generated. **The " + result.expensesProcessedCount() + " expenses included in this calculation are now considered settled** and will not be part of future settlements.");
 
             StringBuilder paymentPlan = new StringBuilder();
-            for(Debt debt : result.newDebts()) {
+            for(DebtData debt : result.newDebts()) {
                 paymentPlan.append(String.format(
                         "• <@%s> owes <@%s> **%s**\n",
                         debt.getDebtorId(),
@@ -503,7 +502,7 @@ public class ExpenseManager {
     }
 
     private static Container buildDebtListContainer(int page, String authorId) {
-        List<Debt> outstandingDebts = getOutstandingDebts();
+        List<DebtData> outstandingDebts = getOutstandingDebts();
         int totalPages = (int) Math.ceil((double) outstandingDebts.size() / ITEMS_PER_PAGE);
         int startIndex = page * ITEMS_PER_PAGE;
 
@@ -515,7 +514,7 @@ public class ExpenseManager {
             components.add(TextDisplay.of("All debts are settled! There are no outstanding payments."));
         else {
             components.add(TextDisplay.of("Here is the current list of unpaid debts. The creditor should run `/debt markpaid` once they receive payment."));
-            for (Debt debt : outstandingDebts) {
+            for (DebtData debt : outstandingDebts) {
                 components.add(TextDisplay.of(String.format(
                         "• <@%s> owes <@%s> **%s**\n  (ID: `%d`)\n",
                         debt.getDebtorId(),
@@ -532,7 +531,7 @@ public class ExpenseManager {
     }
 
     private static Container buildDebtDetailContainer(int index, String authorId, JDA jda) {
-        Debt debt = getDebtById(index);
+        DebtData debt = getDebtById(index);
 
         User debtor = jda.retrieveUserById(debt.getDebtorId()).complete();
         User creditor = jda.retrieveUserById(debt.getCreditorId()).complete();
@@ -577,7 +576,7 @@ public class ExpenseManager {
             }
 
             StringBuilder paymentPlan = new StringBuilder();
-            for(Debt debt : result.newDebts()) {
+            for(DebtData debt : result.newDebts()) {
                 components.add(TextDisplay.of(String.format(
                         "• <@%s> owes <@%s> **%s**\n",
                         debt.getDebtorId(),

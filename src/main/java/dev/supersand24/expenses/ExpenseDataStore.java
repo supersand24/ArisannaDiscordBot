@@ -12,7 +12,7 @@ public class ExpenseDataStore {
 
     private Map<String, List<PaymentInfo>> paymentDetails = new ConcurrentHashMap<>();
 
-    private Map<Long, Debt> debts = new ConcurrentHashMap<>();
+    private Map<Long, DebtData> debts = new ConcurrentHashMap<>();
     private long nextDebtId = 1;
 
     public long getAndIncrementNextExpenseId() {
@@ -29,6 +29,6 @@ public class ExpenseDataStore {
 
     public Map<Long, ExpenseData> getExpenses() { return expenses; }
     public Map<String, List<PaymentInfo>> getPaymentDetails() { return paymentDetails; }
-    public Map<Long, Debt> getDebts() { return debts; }
+    public Map<Long, DebtData> getDebts() { return debts; }
 
 }
