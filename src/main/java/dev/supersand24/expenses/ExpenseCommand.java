@@ -2,7 +2,6 @@ package dev.supersand24.expenses;
 
 import dev.supersand24.CurrencyUtils;
 import dev.supersand24.ICommand;
-import dev.supersand24.Listener;
 import dev.supersand24.events.EventData;
 import dev.supersand24.events.EventManager;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -16,6 +15,11 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
@@ -31,6 +35,25 @@ public class ExpenseCommand implements ICommand {
 
     @Override
     public String getName() { return "expense"; }
+
+    @Override
+    public CommandData getCommandData() {
+        return Commands.slash(getName(), "Modifies Expenses.")
+                .addSubcommands(
+                        new SubcommandData("add", "Add a new expense you paid for.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "name", "What was this expense for?", true),
+                                        new OptionData(OptionType.NUMBER, "amount", "How much did it cost?", true)
+                                ),
+                        new SubcommandData("list", "List expenses.")
+                                .addOption(OptionType.USER, "user", "Filter expenses involving a specific user."),
+                        new SubcommandData("view", "View the details of a single expense.")
+                                .addOption(OptionType.INTEGER, "id", "The ID of the expense to view.", true),
+                        new SubcommandData("remove", "Remove an expense you added.")
+                                .addOption(OptionType.INTEGER, "id", "The ID of the expense to remove.", true),
+                        new SubcommandData("settleup", "Calculate who owes who to settle all debts.")
+                );
+    }
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {

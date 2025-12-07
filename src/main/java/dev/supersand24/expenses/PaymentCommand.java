@@ -14,6 +14,11 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 import java.util.List;
@@ -22,6 +27,32 @@ public class PaymentCommand implements ICommand {
 
     @Override
     public String getName() { return "payment"; }
+
+    @Override
+    public CommandData getCommandData() {
+        return Commands.slash("payment", "Manage your payment information.")
+                .addSubcommands(
+                        new SubcommandData("add", "Add one of your payment methods (e.g., PayPal, Venmo).")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "app", "The name of the app (e.g., PayPal).", true)
+                                                .addChoice("PayPal", "PayPal")
+                                                .addChoice("Venmo", "Venmo")
+                                                .addChoice("Cash App", "Cash App")
+                                                .addChoice("Zelle", "Zelle"),
+                                        new OptionData(OptionType.STRING, "details", "Your username, email, or phone number for the app.", true)
+                                ),
+                        new SubcommandData("remove", "Remove one of your payment methods.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "app", "The name of the app to remove (e.g., PayPal).", true)
+                                                .addChoice("PayPal", "PayPal")
+                                                .addChoice("Venmo", "Venmo")
+                                                .addChoice("Cash App", "Cash App")
+                                                .addChoice("Zelle", "Zelle")
+                                ),
+                        new SubcommandData("view", "View a user's saved payment methods.")
+                                .addOption(OptionType.USER, "user", "The user whose payment info you want to see.", true)
+                );
+    }
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {

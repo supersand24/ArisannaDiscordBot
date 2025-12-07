@@ -1,18 +1,69 @@
 package dev.supersand24.counters;
 
 import dev.supersand24.ICommand;
-import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.*;
 
 public class CounterCommand implements ICommand {
 
     @Override
     public String getName() { return "counter"; }
+
+    public CommandData getCommandData() {
+        return Commands.slash(getName(), "Modifies Counters.")
+                .addSubcommandGroups(
+                        new SubcommandGroupData("editor", "Modifies Editors on a Counter.")
+                                .addSubcommands(
+                                        new SubcommandData("add", "Adds a new editor to a Counter.")
+                                                .addOptions(
+                                                        new OptionData(OptionType.STRING, "counter", "Counter to Modify.", true, true),
+                                                        new OptionData(OptionType.USER, "editor", "Who to add as an Editor.").setRequired(true)
+                                                ),
+                                        new SubcommandData("remove", "Removes an editor from a Counter.")
+                                                .addOptions(
+                                                        new OptionData(OptionType.STRING, "counter", "Counter to Modify.", true, true),
+                                                        new OptionData(OptionType.USER, "editor", "Who to remove as an Editor.").setRequired(true)
+                                                )
+                                )
+                )
+                .addSubcommands(
+                        new SubcommandData("increment", "Increments a Counter.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "counter", "Counter to Modify.", true, true)
+                                ),
+                        new SubcommandData("decrement", "Decrements a Counter.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "counter", "Counter to Modify.", true, true)
+                                ),
+                        new SubcommandData("set", "Sets the Value of a Counter.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "counter", "Counter to Modify.", true, true),
+                                        new OptionData(OptionType.INTEGER, "value", "New value of the Counter.", true)
+                                ),
+                        new SubcommandData("display", "Displays an existing Counter.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "counter", "Counter to Display.", true, true)
+                                ),
+                        new SubcommandData("create", "Creates a new Counter.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "name", "Name of the Counter.", true),
+                                        new OptionData(OptionType.STRING, "description", "Description of the Counter.", true),
+                                        new OptionData(OptionType.INTEGER, "initial-value", "Starting Value."),
+                                        new OptionData(OptionType.INTEGER, "min-value", "Minimum Value."),
+                                        new OptionData(OptionType.INTEGER, "max-value", "Maximum Value.")
+                                ),
+                        new SubcommandData("delete", "Deletes an existing Counter.")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "counter", "Counter to Delete.", true, true)
+                                )
+                );
+    }
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {

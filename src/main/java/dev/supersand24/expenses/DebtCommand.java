@@ -1,18 +1,31 @@
 package dev.supersand24.expenses;
 
 import dev.supersand24.ICommand;
-import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 public class DebtCommand implements ICommand {
     @Override
     public String getName() { return "debt"; }
+
+    @Override
+    public CommandData getCommandData() {
+        return Commands.slash("debt", "Manage outstanding debts from a settlement.")
+                .addSubcommands(
+                        new SubcommandData("list", "List all outstanding (unpaid) debts."),
+                        new SubcommandData("markpaid", "Mark a debt as paid.")
+                                .addOption(OptionType.INTEGER, "id", "The ID of the debt to mark as paid.", true)
+                );
+    }
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {

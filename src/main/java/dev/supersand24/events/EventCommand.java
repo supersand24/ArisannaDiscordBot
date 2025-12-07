@@ -2,8 +2,7 @@ package dev.supersand24.events;
 
 import dev.supersand24.DataStore;
 import dev.supersand24.ICommand;
-import dev.supersand24.Listener;
-import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -11,7 +10,12 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
@@ -32,6 +36,26 @@ public class EventCommand implements ICommand {
 
     @Override
     public String getName() { return "event"; }
+
+    @Override
+    public CommandData getCommandData() {
+         return Commands.slash("event", "Manage travel events.")
+                .addSubcommands(
+                        new SubcommandData("create", "Create a new event.")
+                                .addOption(OptionType.STRING, "name", "The name of the new event", true),
+                        new SubcommandData("list", "List all created events."),
+                        new SubcommandData("edit", "Edit the details of an existing event.")
+                                .addOption(OptionType.INTEGER, "id", "The ID of the event to edit.", true)
+                                .addOption(OptionType.STRING, "name", "The new name for the event.", false)
+                                .addOption(OptionType.STRING, "start-date", "The event's start date (e.g., 03/27/2025).", false)
+                                .addOption(OptionType.STRING, "end-date", "The event's end date (e.g., 03/30/2025).", false)
+                                .addOption(OptionType.ROLE, "role", "The role associated with this event.", false)
+                                .addOption(OptionType.CHANNEL, "channel", "The channel for event discussions.", false)
+                                .addOption(OptionType.STRING, "address", "The physical address of the event venue.", false)
+                                .addOption(OptionType.STRING, "omnidex-link", "The event's omnidex link.", false)
+                )
+                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_EVENTS));
+    }
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {

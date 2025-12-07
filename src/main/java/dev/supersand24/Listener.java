@@ -32,6 +32,10 @@ public class Listener extends ListenerAdapter {
     private final Logger log = LoggerFactory.getLogger(Listener.class);
     private final Map<String, ICommand> commands = new HashMap<>();
 
+    public Collection<ICommand> getAllCommands() {
+        return commands.values();
+    }
+
     @Override
     public void onReady(ReadyEvent e) {
         commands.put("counter", new CounterCommand());
