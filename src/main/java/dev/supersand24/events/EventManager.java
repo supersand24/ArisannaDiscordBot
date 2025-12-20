@@ -162,7 +162,7 @@ public class EventManager {
         for (int i = 0; i < itemsPerPage && (startIndex + i) < events.size(); i++) {
             EventData event = events.get(startIndex + i);
             components.add(TextDisplay.of("### " + event.getName()));
-            components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, "event-list-zoom:" + authorId + ":" + event.getId(), "Details")));
+            components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, "event:list-zoom:" + authorId + ":" + event.getId(), "Details")));
             components.add(Separator.createDivider(Separator.Spacing.SMALL));
         }
 
@@ -175,8 +175,8 @@ public class EventManager {
     private static ActionRow buildListActionRow(List<EventData> events, String authorId, int page) {
         int totalPages = (int) Math.ceil((double) events.size() / 5.0);
 
-        Button prev = Button.secondary("event-list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
-        Button next = Button.secondary("event-list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
+        Button prev = Button.secondary("event:list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
+        Button next = Button.secondary("event:list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
 
         return ActionRow.of(prev, next);
     }
@@ -218,8 +218,8 @@ public class EventManager {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("-# Event ID: " + event.getId()));
         components.add(ActionRow.of(
-                Button.primary("event-edit:" + authorId + ":" + index, "Edit"),
-                Button.danger("event-detail-back:" + authorId, "List")
+                Button.primary("event:edit:" + authorId + ":" + index, "Edit"),
+                Button.danger("event:detail-back:" + authorId, "List")
         ));
 
         return Container.of(components);
@@ -234,29 +234,29 @@ public class EventManager {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("Click on the different buttons/drop downs to edit values for this event."));
         components.add(ActionRow.of(
-                Button.secondary("event-edit-name:" + authorId + ":" + event.getId(), "Name"),
-                Button.secondary("event-edit-dates:" + authorId + ":" + event.getId(), "Dates"),
-                Button.secondary("event-edit-address:" + authorId + ":" + event.getId(), "Address"),
-                Button.secondary("event-edit-omnidex:" + authorId + ":" + event.getId(), "Omnidex")
+                Button.secondary("event:edit-name:" + authorId + ":" + event.getId(), "Name"),
+                Button.secondary("event:edit-dates:" + authorId + ":" + event.getId(), "Dates"),
+                Button.secondary("event:edit-address:" + authorId + ":" + event.getId(), "Address"),
+                Button.secondary("event:edit-omnidex:" + authorId + ":" + event.getId(), "Omnidex")
         ));
 
         components.add(TextDisplay.of("Related Channel"));
-        EntitySelectMenu.Builder channelMenu = EntitySelectMenu.create("event-edit-channel:" + authorId + ":" + event.getId(), EntitySelectMenu.SelectTarget.CHANNEL);
+        EntitySelectMenu.Builder channelMenu = EntitySelectMenu.create("event:edit-channel:" + authorId + ":" + event.getId(), EntitySelectMenu.SelectTarget.CHANNEL);
         if (event.getChannelId() > 0)
             channelMenu.setDefaultValues(EntitySelectMenu.DefaultValue.channel(event.getChannelId()));
         components.add(ActionRow.of(channelMenu.build()));
 
         components.add(TextDisplay.of("Related Role"));
-        EntitySelectMenu.Builder roleMenu = EntitySelectMenu.create("event-edit-role:" + authorId + ":" + event.getId(), EntitySelectMenu.SelectTarget.ROLE);
+        EntitySelectMenu.Builder roleMenu = EntitySelectMenu.create("event:edit-role:" + authorId + ":" + event.getId(), EntitySelectMenu.SelectTarget.ROLE);
         if (event.getRoleId() > 0)
             roleMenu.setDefaultValues(EntitySelectMenu.DefaultValue.role(event.getRoleId()));
         components.add(ActionRow.of(roleMenu.build()));
 
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(ActionRow.of(
-                Button.primary("event-edit-view:" + authorId + ":" + event.getId(), "View Event"),
-                Button.secondary("event-edit-view-list:" + authorId + ":" + event.getId(), "View List"),
-                Button.danger("event-edit-delete:" + authorId + ":" + event.getId(), "Delete Event")
+                Button.primary("event:edit-view:" + authorId + ":" + event.getId(), "View Event"),
+                Button.secondary("event:edit-view-list:" + authorId + ":" + event.getId(), "View List"),
+                Button.danger("event:edit-delete:" + authorId + ":" + event.getId(), "Delete Event")
         ));
 
         return Container.of(components);
@@ -265,7 +265,7 @@ public class EventManager {
     public static Modal generateEditNameModal(int eventIndex) {
         EventData event = getEventById(eventIndex);
 
-        return Modal.create("event-edit-name:" + eventIndex, "Edit Name of Event # " + event.getId())
+        return Modal.create("event:edit-name:" + eventIndex, "Edit Name of Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("name", "Name", TextInputStyle.SHORT)
                         .setPlaceholder(event.getName())
                         .build()))
@@ -285,7 +285,7 @@ public class EventManager {
                 .setRequired(false)
                 .build();
 
-        return Modal.create("event-edit-dates:" + eventIndex, "Edit Dates for Event # " + event.getId())
+        return Modal.create("event:edit-dates:" + eventIndex, "Edit Dates for Event # " + event.getId())
                 .addComponents(ActionRow.of(startDate), ActionRow.of(endDate))
                 .build();
     }
@@ -300,7 +300,7 @@ public class EventManager {
     public static Modal generateEditAddressModal(int eventIndex) {
         EventData event = getEventById(eventIndex);
 
-        return Modal.create("event-edit-address:" + eventIndex, "Edit Address of Event # " + event.getId())
+        return Modal.create("event:edit-address:" + eventIndex, "Edit Address of Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("address", "Address", TextInputStyle.SHORT)
                         .setPlaceholder(event.getAddress() == null ? "123 Main Street" : event.getAddress())
                         .build()))
@@ -310,7 +310,7 @@ public class EventManager {
     public static Modal generateEditOmnidexModal(int eventIndex) {
         EventData event = getEventById(eventIndex);
 
-        return Modal.create("event-edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
+        return Modal.create("event:edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("omnidex", "Omnidex", TextInputStyle.SHORT)
                         .setPlaceholder(event.getOmnidexLink() == null ? "https://omni.gatcg.com/events/..." : event.getOmnidexLink())
                         .build()))
@@ -325,7 +325,7 @@ public class EventManager {
             return null;
         }
 
-        return Modal.create("event-edit-delete:" + eventIndex, "Delete Event # " + event.getId())
+        return Modal.create("event:edit-delete:" + eventIndex, "Delete Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("name", "Enter Event Name to Confirm Deletion.", TextInputStyle.SHORT)
                         .setPlaceholder(event.getName())
                         .build()))

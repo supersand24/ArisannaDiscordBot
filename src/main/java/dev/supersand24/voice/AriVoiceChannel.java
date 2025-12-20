@@ -29,6 +29,7 @@ public class AriVoiceChannel {
     }
 
     public VoiceChannel getVoiceChannel() { return voiceChannel; }
+
     public void addChannelAdmin(Member member) {
         channelAdmins.add(member);
         updateControlPanel();

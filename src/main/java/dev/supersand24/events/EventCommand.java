@@ -153,94 +153,95 @@ public class EventCommand implements ICommand {
     @Override
     public void handleButtonInteraction(ButtonInteractionEvent e) {
         String[] parts = e.getComponentId().split(":");
-        String prefix = parts[0];
+        String prefix = parts[1];
 
-        if (prefix.startsWith("event-")) {
-            String authorId = parts[1];
+        log.info("Processing " + prefix + " button interaction.");
 
-            if (!e.getUser().getId().equals(authorId)) {
-                e.reply("You cannot use these buttons.").setEphemeral(true).queue();
-                return;
-            }
+        String authorId = parts[2];
 
-            if (prefix.equals("event-edit")) {
+        if (!e.getUser().getId().equals(authorId)) {
+            e.reply("You cannot use these buttons.").setEphemeral(true).queue();
+            return;
+        }
 
-                int index = Integer.parseInt(parts[2]);
+        if (prefix.equals("edit")) {
 
-                e.editComponents(EventManager.generateEditContainer(index, authorId))
+            int index = Integer.parseInt(parts[3]);
+
+            e.editComponents(EventManager.generateEditContainer(index, authorId))
+                    .useComponentsV2()
+                    .queue();
+
+        }
+        else if (prefix.startsWith("edit-")) {
+
+            int index = Integer.parseInt(parts[3]);
+
+            switch (prefix) {
+                case "edit-name" -> e.replyModal(EventManager.generateEditNameModal(index)).queue();
+                case "edit-dates" -> e.replyModal(EventManager.generateEditDatesModal(index)).queue();
+                case "edit-address" -> e.replyModal(EventManager.generateEditAddressModal(index)).queue();
+                case "edit-omnidex" -> e.replyModal(EventManager.generateEditOmnidexModal(index)).queue();
+                case "edit-delete" -> {
+                    Modal modal = EventManager.generateDeleteEventModel(index);
+                    if (modal == null)
+                        e.reply("Could not delete non existing event!").setEphemeral(true).queue();
+                    else
+                        e.replyModal(modal).queue();
+                }
+                case "edit-view" -> e.editComponents(EventManager.buildDetailContainer(index, authorId))
                         .useComponentsV2()
                         .queue();
-
-            }
-            else if (prefix.startsWith("event-edit-")) {
-
-                int index = Integer.parseInt(parts[2]);
-
-                switch (prefix) {
-                    case "event-edit-name" -> e.replyModal(EventManager.generateEditNameModal(index)).queue();
-                    case "event-edit-dates" -> e.replyModal(EventManager.generateEditDatesModal(index)).queue();
-                    case "event-edit-address" -> e.replyModal(EventManager.generateEditAddressModal(index)).queue();
-                    case "event-edit-omnidex" -> e.replyModal(EventManager.generateEditOmnidexModal(index)).queue();
-                    case "event-edit-delete" -> {
-                        Modal modal = EventManager.generateDeleteEventModel(index);
-                        if (modal == null)
-                            e.reply("Could not delete non existing event!").setEphemeral(true).queue();
-                        else
-                            e.replyModal(modal).queue();
-                    }
-                    case "event-edit-view" -> e.editComponents(EventManager.buildDetailContainer(index, authorId))
-                            .useComponentsV2()
-                            .queue();
-                    case "event-edit-view-list" ->
-                            e.editComponents(EventManager.buildListContainer(EventManager.getAllEvents(), 0, authorId))
-                                    .useComponentsV2()
-                                    .queue();
-                    default -> {
-                        log.error("Unexpected Event Edit Button Pressed!");
-                        e.reply("Something went wrong!").setEphemeral(true).queue();
-                    }
+                case "edit-view-list" ->
+                        e.editComponents(EventManager.buildListContainer(EventManager.getAllEvents(), 0, authorId))
+                                .useComponentsV2()
+                                .queue();
+                default -> {
+                    log.error("Unexpected Event Edit Button Pressed!");
+                    e.reply("Something went wrong!").setEphemeral(true).queue();
                 }
-
-            }
-            else {
-
-                e.deferEdit().queue();
-
-                MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
-
-                switch (prefix) {
-                    case "event-list-prev", "event-list-next" -> {
-                        int currentPage = Integer.parseInt(parts[2]);
-                        int newPage = prefix.equals("event-list-next") ? currentPage + 1 : currentPage - 1;
-                        data = EventManager.generateListMessage(authorId, newPage);
-                    }
-                    case "event-list-zoom" -> {
-                        int index = Integer.parseInt(parts[2]);
-                        data = EventManager.generateDetailMessage(authorId, index);
-                    }
-                    case "event-detail-prev", "event-detail-next" -> {
-                        int currentIndex = Integer.parseInt(parts[2]);
-                        int newIndex = prefix.equals("event-detail-next") ? currentIndex + 1 : currentIndex - 1;
-                        data = EventManager.generateDetailMessage(authorId, newIndex);
-                    }
-                    case "event-detail-back" -> data = EventManager.generateListMessage(authorId, 0);
-                }
-
-                e.getHook().editOriginalComponents(data.getComponents())
-                        .useComponentsV2()
-                        .queue();
             }
 
         }
+        else {
+
+            e.deferEdit().queue();
+
+            MessageCreateData data = new MessageCreateBuilder().setContent("No events.").build();
+
+            switch (prefix) {
+                case "list-prev", "list-next" -> {
+                    int currentPage = Integer.parseInt(parts[3]);
+                    int newPage = prefix.equals("list-next") ? currentPage + 1 : currentPage - 1;
+                    data = EventManager.generateListMessage(authorId, newPage);
+                }
+                case "list-zoom" -> {
+                    int index = Integer.parseInt(parts[3]);
+                    data = EventManager.generateDetailMessage(authorId, index);
+                }
+                case "detail-prev", "detail-next" -> {
+                    int currentIndex = Integer.parseInt(parts[3]);
+                    int newIndex = prefix.equals("detail-next") ? currentIndex + 1 : currentIndex - 1;
+                    data = EventManager.generateDetailMessage(authorId, newIndex);
+                }
+                case "detail-back" -> data = EventManager.generateListMessage(authorId, 0);
+            }
+
+            e.getHook().editOriginalComponents(data.getComponents())
+                    .useComponentsV2()
+                    .queue();
+        }
+
+
     }
 
     @Override
     public void handleStringSelectInteraction(StringSelectInteractionEvent e) {
         String[] parts = e.getComponentId().split(":");
-        String prefix = parts[0];
-        String authorId = parts.length > 1 ? parts[1] : "";
+        String prefix = parts[1];
+        String authorId = parts.length > 2 ? parts[2] : "";
 
-        if (prefix.equals("event-list-zoom")) {
+        if (prefix.equals("list-zoom")) {
             if (!e.getUser().getId().equals(authorId)) {
                 e.reply("You cannot use these buttons.").setEphemeral(true).queue();
                 return;
@@ -248,7 +249,7 @@ public class EventCommand implements ICommand {
 
             e.deferEdit().queue();
 
-            int index = Integer.parseInt(e.getValues().get(0));
+            int index = Integer.parseInt(e.getValues().getFirst());
             MessageCreateData data = EventManager.generateDetailMessage(authorId, index);
             e.getHook().editOriginalEmbeds(data.getEmbeds())
                     .setComponents(data.getComponents())
@@ -264,13 +265,13 @@ public class EventCommand implements ICommand {
     @Override
     public void handleModalInteraction(ModalInteractionEvent e) {
         String[] parts = e.getModalId().split(":");
-        String prefix = parts[0];
+        String prefix = parts[1];
 
-        if (prefix.startsWith("event-edit-")) {
-            long eventIndex = Long.parseLong(parts[1]);
+        if (prefix.startsWith("edit-")) {
+            long eventIndex = Long.parseLong(parts[2]);
 
             switch (prefix) {
-                case "event-edit-name" -> {
+                case "edit-name" -> {
                     boolean hasChanged = false;
                     ModalMapping name = e.getValue("name");
                     if (name != null) {
@@ -279,7 +280,7 @@ public class EventCommand implements ICommand {
                     }
                     e.reply(hasChanged ? "Name updated successfully!" : "No changes were made.").setEphemeral(true).queue();
                 }
-                case "event-edit-dates" -> {
+                case "edit-dates" -> {
 
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
                     boolean hasChanged = false;
@@ -312,7 +313,7 @@ public class EventCommand implements ICommand {
 
                     e.reply(hasChanged ? "Dates updated successfully!" : "No changes were made.").setEphemeral(true).queue();
                 }
-                case "event-edit-address" -> {
+                case "edit-address" -> {
                     boolean hasChanged = false;
                     ModalMapping address = e.getValue("address");
                     if (address != null) {
@@ -321,7 +322,7 @@ public class EventCommand implements ICommand {
                     }
                     e.reply(hasChanged ? "Address updated successfully!" : "No changes were made.").setEphemeral(true).queue();
                 }
-                case "event-edit-omnidex" -> {
+                case "edit-omnidex" -> {
                     boolean hasChanged = false;
                     ModalMapping omnidex = e.getValue("omnidex");
                     if (omnidex != null) {
@@ -330,7 +331,7 @@ public class EventCommand implements ICommand {
                     }
                     e.reply(hasChanged ? "Omnidex updated successfully!" : "No changes were made.").setEphemeral(true).queue();
                 }
-                case "event-edit-delete" -> {
+                case "edit-delete" -> {
                     ModalMapping name = e.getValue("name");
                     if (name == null) { e.reply("There was an issue deleting the event!").setEphemeral(true).queue(); return; }
                     if (name.getAsString().equals(EventManager.getEventName(eventIndex))) {

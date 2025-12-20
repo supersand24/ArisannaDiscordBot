@@ -6,7 +6,6 @@ import dev.supersand24.events.EventData;
 import dev.supersand24.expenses.DebtData;
 import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.PaymentInfo;
-import dev.supersand24.voice.VoiceManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
@@ -17,6 +16,7 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ArisannaBot {
@@ -72,7 +72,7 @@ public class ArisannaBot {
             GatewayIntent.SCHEDULED_EVENTS
         ).setMemberCachePolicy(MemberCachePolicy.ALL);
 
-        builder.addEventListeners(listener, new VoiceManager());
+        builder.addEventListeners(listener);
 
         try {
             jda = builder.build();
@@ -80,6 +80,7 @@ public class ArisannaBot {
 
             List<CommandData> commandDataList = listener.getAllCommands().stream()
                 .map(ICommand::getCommandData)
+                .filter(Objects::nonNull)
                 .toList();
 
             ArisannaBot.getAriGuild().updateCommands()
