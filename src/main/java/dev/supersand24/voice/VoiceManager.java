@@ -53,6 +53,10 @@ public class VoiceManager {
                     guild.getPublicRole().getIdLong(),
                     EnumSet.of(Permission.VIEW_CHANNEL),
                     EnumSet.noneOf(Permission.class)
+            ).putPermissionOverride(
+                    guild.getSelfMember(),
+                    EnumSet.allOf(Permission.class),
+                    EnumSet.noneOf(Permission.class)
             ).queue(success -> ariVC.sendControlPanel());
         });
     }

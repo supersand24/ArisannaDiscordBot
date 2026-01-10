@@ -93,7 +93,7 @@ public class VoiceCommand implements ICommand {
                 }
 
                 showChannel(ariVC);
-                e.reply("Channel revealed " + ArisannaBot.emojiHeartArisanna.getAsMention()).setEphemeral(true).queue(message -> ariVC.updateControlPanel());
+                e.reply("Channel revealed " + ArisannaBot.emojiHeartArisanna.getFormatted()).setEphemeral(true).queue(message -> ariVC.updateControlPanel());
             }
             case "sendVisibility" -> {
                 Long channelId = Long.parseLong(parts[2]);
