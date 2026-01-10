@@ -53,6 +53,7 @@ public class EventCommand implements ICommand {
                                 .addOption(OptionType.CHANNEL, "channel", "The channel for event discussions.", false)
                                 .addOption(OptionType.STRING, "address", "The physical address of the event venue.", false)
                                 .addOption(OptionType.STRING, "omnidex-link", "The event's omnidex link.", false)
+                                .addOption(OptionType.STRING, "ticket-link", "The event's ticket link.", false)
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_EVENTS));
     }
@@ -132,11 +133,19 @@ public class EventCommand implements ICommand {
                     changed = true;
                 }
 
-                OptionMapping linkOpt = e.getOption("omnidex");
-                if (linkOpt != null) {
-                    String link = linkOpt.getAsString();
-                    EventManager.setOmnidexLink(eventId, link);
-                    response.append("- Link set to: ").append(link).append("\n");
+                OptionMapping omnidexLinkOpt = e.getOption("omnidex-link");
+                if (omnidexLinkOpt != null) {
+                    String omnidexLink = omnidexLinkOpt.getAsString();
+                    EventManager.setOmnidexLink(eventId, omnidexLink);
+                    response.append("- Omnidex Link set to: ").append(omnidexLink).append("\n");
+                    changed = true;
+                }
+
+                OptionMapping ticketLinkOpt = e.getOption("ticket-link");
+                if (ticketLinkOpt != null) {
+                    String ticketLink = ticketLinkOpt.getAsString();
+                    EventManager.setTicketLink(eventId, ticketLink);
+                    response.append("- Ticket Link set to: ").append(ticketLink).append("\n");
                     changed = true;
                 }
 
@@ -182,6 +191,7 @@ public class EventCommand implements ICommand {
                 case "edit-dates" -> e.replyModal(EventManager.generateEditDatesModal(index)).queue();
                 case "edit-address" -> e.replyModal(EventManager.generateEditAddressModal(index)).queue();
                 case "edit-omnidex" -> e.replyModal(EventManager.generateEditOmnidexModal(index)).queue();
+                case "edit-ticket" -> e.replyModal(EventManager.generateEditTicketLinkModal(index)).queue();
                 case "edit-delete" -> {
                     Modal modal = EventManager.generateDeleteEventModel(index);
                     if (modal == null)
@@ -330,6 +340,15 @@ public class EventCommand implements ICommand {
                         hasChanged = true;
                     }
                     e.reply(hasChanged ? "Omnidex updated successfully!" : "No changes were made.").setEphemeral(true).queue();
+                }
+                case "edit-ticket" -> {
+                    boolean hasChanged = false;
+                    ModalMapping ticketLink = e.getValue("ticket");
+                    if (ticketLink != null) {
+                        EventManager.setTicketLink(eventIndex, ticketLink.getAsString());
+                        hasChanged = true;
+                    }
+                    e.reply(hasChanged ? "Ticket Link updated successfully!" : "No changes were made.").setEphemeral(true).queue();
                 }
                 case "edit-delete" -> {
                     ModalMapping name = e.getValue("name");

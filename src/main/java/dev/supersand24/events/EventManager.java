@@ -126,6 +126,12 @@ public class EventManager {
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
+    public static void setTicketLink(long index, String newTicketLink) {
+        EventData event = getEventById(index);
+        event.setTicketLink(newTicketLink);
+        DataStore.markDirty(DATA_STORE_NAME);
+    }
+
     public static boolean deleteEvent(long index) {
         EventData event = getEventById(index);
         if (event == null) return false;
@@ -207,7 +213,10 @@ public class EventManager {
             components.add(TextDisplay.of("### Address\n" + event.getAddress()));
 
         if (event.getOmnidexLink() != null) if (!event.getOmnidexLink().isEmpty()) if (event.getOmnidexLink().startsWith("https://omni.gatcg.com/events/"))
-            components.add(ActionRow.of(Button.link(event.getOmnidexLink(), "Omnidex")));
+            components.add(ActionRow.of(Button.link(event.getOmnidexLink(), "Omnidex Link")));
+
+        if (event.getTicketLink() != null) if (!event.getTicketLink().isEmpty())
+            components.add(ActionRow.of(Button.link(event.getTicketLink(), "Ticket Link")));
 
         if (event.getChannelId() > 0)
             components.add(TextDisplay.of("### Channel\n<#" + event.getChannelId() + ">"));
@@ -237,7 +246,8 @@ public class EventManager {
                 Button.secondary("event:edit-name:" + authorId + ":" + event.getId(), "Name"),
                 Button.secondary("event:edit-dates:" + authorId + ":" + event.getId(), "Dates"),
                 Button.secondary("event:edit-address:" + authorId + ":" + event.getId(), "Address"),
-                Button.secondary("event:edit-omnidex:" + authorId + ":" + event.getId(), "Omnidex")
+                Button.secondary("event:edit-omnidex:" + authorId + ":" + event.getId(), "Omnidex"),
+                Button.secondary("event:edit-ticket:" + authorId + ":" + event.getId(), "Ticket")
         ));
 
         components.add(TextDisplay.of("Related Channel"));
@@ -313,6 +323,16 @@ public class EventManager {
         return Modal.create("event:edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("omnidex", "Omnidex", TextInputStyle.SHORT)
                         .setPlaceholder(event.getOmnidexLink() == null ? "https://omni.gatcg.com/events/..." : event.getOmnidexLink())
+                        .build()))
+                .build();
+    }
+
+    public static Modal generateEditTicketLinkModal(int eventIndex) {
+        EventData event = getEventById(eventIndex);
+
+        return Modal.create("event:edit-ticket:" + eventIndex, "Edit Ticket Link on Event # " + event.getId())
+                .addComponents(ActionRow.of(TextInput.create("ticket", "Ticket", TextInputStyle.SHORT)
+                        .setPlaceholder(event.getOmnidexLink() == null ? "https://www.website.com/..." : event.getTicketLink())
                         .build()))
                 .build();
     }

@@ -12,6 +12,7 @@ public class EventData implements IData {
     private long channelId;
     private String address;
     private String omnidexLink;
+    private String ticketLink;
 
     public EventData(String name) {
         this.name = name;
@@ -33,5 +34,7 @@ public class EventData implements IData {
     public void setAddress(String address) { this.address = address; }
     public String getOmnidexLink() { return omnidexLink; }
     public void setOmnidexLink(String omnidexLink) { this.omnidexLink = omnidexLink; }
+    public String getTicketLink() { return ticketLink; }
+    public void setTicketLink(String ticketLink) { this.ticketLink = ticketLink; }
 
 }
