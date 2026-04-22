@@ -1,9 +1,11 @@
 package dev.supersand24.events;
 
+import dev.supersand24.ArisannaBot;
 import dev.supersand24.DataStore;
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -269,7 +271,30 @@ public class EventCommand implements ICommand {
 
     @Override
     public void handleEntitySelectInteraction(EntitySelectInteractionEvent e) {
+        String[] parts = e.getComponentId().split(":");
+        String prefix = parts[1];
+        long authorId = ArisannaBot.parseLongSafe(parts, 2);
+        long eventId = ArisannaBot.parseLongSafe(parts, 3);
 
+        log.info("Received!  " + prefix + " - " + authorId);
+
+        if (prefix.equals("edit-channel")) {
+            boolean hasChanged = false;
+            Channel channel = e.getMentions().getChannels().getFirst();
+            if (channel != null) {
+                EventManager.setChannelId(eventId, channel.getIdLong());
+                hasChanged = true;
+            }
+            e.reply(hasChanged ? "Channel set to " + channel.getAsMention() + " successfully!" : "No changes to channel were made.").setEphemeral(true).queue();
+        } else if (prefix.equals("edit-role")) {
+            boolean hasChanged = false;
+            Role role = e.getMentions().getRoles().getFirst();
+            if (role != null) {
+                EventManager.setRoleId(eventId, role.getIdLong());
+                hasChanged = true;
+            }
+            e.reply(hasChanged ? "Role set to " + role.getAsMention() + " successfully!" : "No changes to role were made.").setEphemeral(true).setSuppressedNotifications(true).queue();
+        }
     }
 
     @Override

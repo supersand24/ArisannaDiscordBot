@@ -99,4 +99,15 @@ public class ArisannaBot {
     public static Guild getAriGuild() {
         return jda.getGuildById("1295469711773138984");
     }
+
+    public static long parseLongSafe(String[] parts, int index) {
+        if (parts.length > index && !parts[index].isEmpty()) {
+            try {
+                return Long.parseLong(parts[index]);
+            } catch (NumberFormatException e) {
+                return 0L;
+            }
+        }
+        return 0L;
+    }
 }

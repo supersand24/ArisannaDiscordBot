@@ -1,6 +1,10 @@
 package dev.supersand24.events;
 
 import dev.supersand24.IData;
+import dev.supersand24.groups.GroupData;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class EventData implements IData {
 
@@ -13,6 +17,7 @@ public class EventData implements IData {
     private String address;
     private String omnidexLink;
     private String ticketLink;
+    private List<GroupData> groups = new ArrayList<>();
 
     public EventData(String name) {
         this.name = name;
