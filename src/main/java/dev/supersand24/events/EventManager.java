@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
@@ -15,7 +16,7 @@ import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -367,27 +368,26 @@ public class EventManager {
         EventData event = getEventById(eventIndex);
 
         return Modal.create("event:edit-name:" + eventIndex, "Edit Name of Event # " + event.getId())
-                .addComponents(ActionRow.of(TextInput.create("name", "Name", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getName())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Name", TextInput.create("name", TextInputStyle.SHORT).setPlaceholder(event.getName()).build())
+                ).build();
     }
 
     public static Modal generateEditDatesModal(int eventIndex) {
         EventData event = getEventById(eventIndex);
 
-        TextInput startDate = TextInput.create("start-date", "Starting Date", TextInputStyle.SHORT)
+        Label startDate = Label.of("Starting Date", TextInput.create("start-date", TextInputStyle.SHORT)
                 .setPlaceholder(event.getStartDate() > 0 ? longToDateString(event.getStartDate()) : "01/01/2020")
                 .setRequired(false)
-                .build();
+                .build());
 
-        TextInput endDate = TextInput.create("end-date", "Ending Date", TextInputStyle.SHORT)
-                .setPlaceholder(event.getEndDate() > 0 ? longToDateString(event.getEndDate()) : "12/31/2025")
+        Label endDate = Label.of("Ending Date", TextInput.create("end-date", TextInputStyle.SHORT)
+                .setPlaceholder(event.getEndDate() > 0 ? longToDateString(event.getEndDate()) : "12/31/2075")
                 .setRequired(false)
-                .build();
+                .build());
 
         return Modal.create("event:edit-dates:" + eventIndex, "Edit Dates for Event # " + event.getId())
-                .addComponents(ActionRow.of(startDate), ActionRow.of(endDate))
+                .addComponents(startDate, endDate)
                 .build();
     }
 
@@ -402,30 +402,33 @@ public class EventManager {
         EventData event = getEventById(eventIndex);
 
         return Modal.create("event:edit-address:" + eventIndex, "Edit Address of Event # " + event.getId())
-                .addComponents(ActionRow.of(TextInput.create("address", "Address", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getAddress().isBlank() ? "123 Main Street" : event.getAddress())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Address", TextInput.create("address", TextInputStyle.SHORT)
+                                .setPlaceholder(event.getAddress().isBlank() ? "123 Main Street" : event.getAddress())
+                                .build())
+                ).build();
     }
 
     public static Modal generateEditOmnidexModal(int eventIndex) {
         EventData event = getEventById(eventIndex);
 
         return Modal.create("event:edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
-                .addComponents(ActionRow.of(TextInput.create("omnidex", "Omnidex", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getOmnidexLink().isBlank() ? "https://omni.gatcg.com/events/..." : event.getOmnidexLink())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Omnidex", TextInput.create("omnidex", TextInputStyle.SHORT)
+                                .setPlaceholder(event.getOmnidexLink().isBlank() ? "https://omni.gatcg.com/events/..." : event.getOmnidexLink())
+                                .build())
+                ).build();
     }
 
     public static Modal generateEditTicketLinkModal(int eventIndex) {
         EventData event = getEventById(eventIndex);
 
         return Modal.create("event:edit-ticket:" + eventIndex, "Edit Ticket Link on Event # " + event.getId())
-                .addComponents(ActionRow.of(TextInput.create("ticket", "Ticket", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getOmnidexLink().isBlank() ? "https://www.website.com/..." : event.getTicketLink())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Ticket", TextInput.create("ticket", TextInputStyle.SHORT)
+                                .setPlaceholder(event.getTicketLink().isBlank() ? "https://www.website.com/..." : event.getTicketLink())
+                                .build())
+                ).build();
     }
 
     public static Modal generateDeleteEventModel(int eventIndex) {
@@ -437,10 +440,11 @@ public class EventManager {
         }
 
         return Modal.create("event:edit-delete:" + eventIndex, "Delete Event # " + event.getId())
-                .addComponents(ActionRow.of(TextInput.create("name", "Enter Event Name to Confirm Deletion.", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getName())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Enter Event Name to Confirm Deletion", TextInput.create("name", TextInputStyle.SHORT)
+                                .setPlaceholder(event.getName())
+                                .build())
+                ).build();
     }
 
 }

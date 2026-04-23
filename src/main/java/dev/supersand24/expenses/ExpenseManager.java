@@ -10,13 +10,14 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -600,20 +601,20 @@ public class ExpenseManager {
         ExpenseData expense = getExpenseById(index);
 
         return Modal.create("expense-edit-name:" + index, "Edit Name of Expense # " + expense.getId())
-                .addComponents(ActionRow.of(TextInput.create("name", "Name", TextInputStyle.SHORT)
-                        .setPlaceholder(expense.getName())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Name", TextInput.create("name", TextInputStyle.SHORT).build())
+                ).build();
     }
 
     public static Modal generateEditExpenseAmountModal(int index) {
         ExpenseData expense = getExpenseById(index);
 
         return Modal.create("expense-edit-amount:" + index, "Edit Amount of Expense # " + expense.getId())
-                .addComponents(ActionRow.of(TextInput.create("amount", "Amount", TextInputStyle.SHORT)
-                        .setPlaceholder(CurrencyUtils.formatAsUSD(expense.getAmount()))
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Amount", TextInput.create("amount", TextInputStyle.SHORT)
+                                        .setPlaceholder(CurrencyUtils.formatAsUSD(expense.getAmount()))
+                                        .build())
+                ).build();
     }
 
     public static Modal generateEditExpenseEventLinkedModal(int index) {
@@ -622,10 +623,9 @@ public class ExpenseManager {
         String placeholder = expense.getEventId() == 0 ? "No Event" : EventManager.getEventName(expense.getEventId());
 
         return Modal.create("expense-edit-event:" + index, "Set Linked Event of Expense # " + expense.getId())
-                .addComponents(ActionRow.of(TextInput.create("event", "Event", TextInputStyle.SHORT)
-                        .setPlaceholder(placeholder)
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Event", TextInput.create("event", TextInputStyle.SHORT).setPlaceholder(placeholder).build())
+                ).build();
     }
 
     public static Modal generateDeleteExpenseModel(int index) {
@@ -637,10 +637,11 @@ public class ExpenseManager {
         }
 
         return Modal.create("event-edit-delete:" + index, "Delete Event # " + expense.getId())
-                .addComponents(ActionRow.of(TextInput.create("name", "Enter Event Name to Confirm Deletion.", TextInputStyle.SHORT)
-                        .setPlaceholder(expense.getName())
-                        .build()))
-                .build();
+                .addComponents(
+                        Label.of("Enter Event Name to Confirm Deletion", TextInput.create("name", TextInputStyle.SHORT)
+                                .setPlaceholder(expense.getName())
+                                .build())
+                ).build();
     }
 
 }
