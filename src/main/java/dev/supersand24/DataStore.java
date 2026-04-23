@@ -21,7 +21,10 @@ import java.util.function.Supplier;
 public class DataStore {
 
     private static final Logger log = LoggerFactory.getLogger(DataStore.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .serializeNulls()
+            .create();
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private static final Map<String, Partition<?>> partitions = new ConcurrentHashMap<>();
 

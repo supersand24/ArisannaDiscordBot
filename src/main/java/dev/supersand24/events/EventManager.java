@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
@@ -70,6 +71,15 @@ public class EventManager {
         DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
         return new ArrayList<>(eventPartition.getData().values())
                 .stream()
+                .sorted(Comparator.comparing(EventData::getId))
+                .collect(Collectors.toList());
+    }
+
+    public static List<EventData> getAllEventsGaugingInterest() {
+        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+        return new ArrayList<>(eventPartition.getData().values())
+                .stream()
+                .filter(EventData::isGaugeInterest)
                 .sorted(Comparator.comparing(EventData::getId))
                 .collect(Collectors.toList());
     }
@@ -132,6 +142,34 @@ public class EventManager {
         DataStore.markDirty(DATA_STORE_NAME);
     }
 
+    public static boolean isGaugeInterest(long index) {
+        EventData event = getEventById(index);
+        return event.isGaugeInterest();
+    }
+
+    public static void setGaugeInterest(long index, boolean newGaugeInterest) {
+        EventData event = getEventById(index);
+        event.setGaugeInterest(newGaugeInterest);
+        DataStore.markDirty(DATA_STORE_NAME);
+    }
+
+    public static boolean isMemberInterested(long eventIndex, Member member) {
+        EventData event = getEventById(eventIndex);
+        return event.getInterestedMembers().contains(member.getIdLong());
+    }
+
+    public static void addInterestedMember(long eventIndex, Member member) {
+        EventData event = getEventById(eventIndex);
+        event.addInterestedMember(member.getIdLong());
+        DataStore.markDirty(DATA_STORE_NAME);
+    }
+
+    public static void removeInterestedMember(long eventIndex, Member member) {
+        EventData event = getEventById(eventIndex);
+        event.removeInterestedMember(member.getIdLong());
+        DataStore.markDirty(DATA_STORE_NAME);
+    }
+
     public static boolean deleteEvent(long index) {
         EventData event = getEventById(index);
         if (event == null) return false;
@@ -185,6 +223,54 @@ public class EventManager {
         Button next = Button.secondary("event:list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
 
         return ActionRow.of(prev, next);
+    }
+
+    public static MessageCreateData generateGaugeInterestList(String authorId, int page) {
+        List<EventData> events = EventManager.getAllEventsGaugingInterest();
+        if (events.isEmpty()) {
+            return new MessageCreateBuilder().setContent("We are not currently gauging interest in any events.").build();
+        }
+        return new MessageCreateBuilder()
+                .addComponents(buildGaugeInterestListContainer(events, page, authorId))
+                .useComponentsV2()
+                .build();
+    }
+
+    public static Container buildGaugeInterestListContainer(List<EventData> events, int page, String authorId) {
+        final int itemsPerPage = 5;
+        int totalPages = (int) Math.ceil((double) events.size() / itemsPerPage);
+        int startIndex = page * itemsPerPage;
+
+        List<ContainerChildComponent> components = new ArrayList<>();
+
+        components.add(TextDisplay.of("## List of Upcoming Events"));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+
+        //Add Text Display for current filter here
+
+        for (EventData event : events) {
+            components.add(TextDisplay.of("### " + event.getName()));
+            components.add(ActionRow.of(
+                    Button.secondary("event:gaugeInterest:" + authorId + ":" + event.getId(), "I am Interested")
+            ));
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        }
+
+        /* Page related stuff, I don't think we need at this moment.
+        for (int i = 0; i < itemsPerPage && (startIndex + i) < events.size(); i++) {
+            EventData event = events.get(startIndex + i);
+            components.add(TextDisplay.of("### " + event.getName()));
+            components.add(ActionRow.of(
+                    Button.secondary("event:gaugeInterest:" + authorId + ":" + event.getId(), "I am Interested")
+            ));
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        }
+
+        components.add(TextDisplay.of("-# Page " + (page + 1) + " of " + totalPages));
+        components.add(buildListActionRow(events, authorId, page));
+        */
+
+        return Container.of(components);
     }
 
     public static MessageCreateData generateDetailMessage(String authorId, int index) {
@@ -262,11 +348,16 @@ public class EventManager {
             roleMenu.setDefaultValues(EntitySelectMenu.DefaultValue.role(event.getRoleId()));
         components.add(ActionRow.of(roleMenu.build()));
 
+        components.add(TextDisplay.of("Event Actions"));
+        components.add(ActionRow.of(
+                Button.primary("event:edit-gaugeInterest:" + authorId + ":" + event.getId(), "Gauge Interest"),
+                Button.danger("event:edit-delete:" + authorId + ":" + event.getId(), "Delete Event")
+        ));
+
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(ActionRow.of(
                 Button.primary("event:edit-view:" + authorId + ":" + event.getId(), "View Event"),
-                Button.secondary("event:edit-view-list:" + authorId + ":" + event.getId(), "View List"),
-                Button.danger("event:edit-delete:" + authorId + ":" + event.getId(), "Delete Event")
+                Button.secondary("event:edit-view-list:" + authorId + ":" + event.getId(), "View List")
         ));
 
         return Container.of(components);
@@ -312,7 +403,7 @@ public class EventManager {
 
         return Modal.create("event:edit-address:" + eventIndex, "Edit Address of Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("address", "Address", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getAddress() == null ? "123 Main Street" : event.getAddress())
+                        .setPlaceholder(event.getAddress().isBlank() ? "123 Main Street" : event.getAddress())
                         .build()))
                 .build();
     }
@@ -322,7 +413,7 @@ public class EventManager {
 
         return Modal.create("event:edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("omnidex", "Omnidex", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getOmnidexLink() == null ? "https://omni.gatcg.com/events/..." : event.getOmnidexLink())
+                        .setPlaceholder(event.getOmnidexLink().isBlank() ? "https://omni.gatcg.com/events/..." : event.getOmnidexLink())
                         .build()))
                 .build();
     }
@@ -332,7 +423,7 @@ public class EventManager {
 
         return Modal.create("event:edit-ticket:" + eventIndex, "Edit Ticket Link on Event # " + event.getId())
                 .addComponents(ActionRow.of(TextInput.create("ticket", "Ticket", TextInputStyle.SHORT)
-                        .setPlaceholder(event.getOmnidexLink() == null ? "https://www.website.com/..." : event.getTicketLink())
+                        .setPlaceholder(event.getOmnidexLink().isBlank() ? "https://www.website.com/..." : event.getTicketLink())
                         .build()))
                 .build();
     }

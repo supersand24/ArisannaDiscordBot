@@ -4,6 +4,7 @@ import dev.supersand24.ArisannaBot;
 import dev.supersand24.DataStore;
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
@@ -46,6 +47,7 @@ public class EventCommand implements ICommand {
                         new SubcommandData("create", "Create a new event.")
                                 .addOption(OptionType.STRING, "name", "The name of the new event", true),
                         new SubcommandData("list", "List all created events."),
+                        new SubcommandData("gauge-interest", "List all events we are currently gauging for interest."),
                         new SubcommandData("edit", "Edit the details of an existing event.")
                                 .addOption(OptionType.INTEGER, "id", "The ID of the event to edit.", true)
                                 .addOption(OptionType.STRING, "name", "The new name for the event.", false)
@@ -71,6 +73,11 @@ public class EventCommand implements ICommand {
             case "list" -> {
                 e.deferReply().queue();
                 MessageCreateData messageData = EventManager.generateListMessage(e.getUser().getId(), 0);
+                e.getHook().sendMessage(messageData).useComponentsV2().queue();
+            }
+            case "gauge-interest" -> {
+                e.deferReply().queue();
+                MessageCreateData messageData = EventManager.generateGaugeInterestList(e.getUser().getId(), 0);
                 e.getHook().sendMessage(messageData).useComponentsV2().queue();
             }
             case "edit" -> {
@@ -194,6 +201,11 @@ public class EventCommand implements ICommand {
                 case "edit-address" -> e.replyModal(EventManager.generateEditAddressModal(index)).queue();
                 case "edit-omnidex" -> e.replyModal(EventManager.generateEditOmnidexModal(index)).queue();
                 case "edit-ticket" -> e.replyModal(EventManager.generateEditTicketLinkModal(index)).queue();
+                case "edit-gaugeInterest" -> {
+                    boolean isGaugeInterest = EventManager.isGaugeInterest(index);
+                    EventManager.setGaugeInterest(index, !isGaugeInterest);
+                    e.reply(isGaugeInterest ? "Event updated to stop gauging interest!" : "Event updated to start start gauging interest!").setEphemeral(true).queue();
+                }
                 case "edit-delete" -> {
                     Modal modal = EventManager.generateDeleteEventModel(index);
                     if (modal == null)
@@ -214,6 +226,19 @@ public class EventCommand implements ICommand {
                 }
             }
 
+        }
+        else if (prefix.equals("gaugeInterest")) {
+
+            int eventIndex = Integer.parseInt(parts[3]);
+            Member member = e.getMember();
+
+            if (EventManager.isMemberInterested(eventIndex, member)) {
+                EventManager.removeInterestedMember(eventIndex, member);
+                e.reply("You have been marked down as **uninterested**.").setEphemeral(true).queue();
+            } else {
+                EventManager.addInterestedMember(eventIndex, member);
+                e.reply("You have been marked down as **interested**.").setEphemeral(true).queue();
+            }
         }
         else {
 
@@ -237,6 +262,18 @@ public class EventCommand implements ICommand {
                     data = EventManager.generateDetailMessage(authorId, newIndex);
                 }
                 case "detail-back" -> data = EventManager.generateListMessage(authorId, 0);
+                case "gaugeInterest" -> {
+                    Member member = e.getMember();
+                    int eventIndex = Integer.parseInt(parts[3]);
+                    log.info(member.getEffectiveName() + " " + eventIndex);
+                    if (EventManager.isMemberInterested(eventIndex, member)) {
+                        EventManager.removeInterestedMember(eventIndex, member);
+                        data = new MessageCreateBuilder().setContent("You have been marked down as **uninterested**.").build();
+                    } else {
+                        EventManager.addInterestedMember(eventIndex, member);
+                        data = new MessageCreateBuilder().setContent("You have been marked down as **interested**.").build();
+                    }
+                }
             }
 
             e.getHook().editOriginalComponents(data.getComponents())
