@@ -212,18 +212,9 @@ public class EventManager {
         }
 
         components.add(TextDisplay.of("-# Page " + (page + 1) + " of " + totalPages));
-        components.add(buildListActionRow(events, authorId, page));
+        components.add(ArisannaBot.buildListActionRow("event", events, authorId, page));
 
         return Container.of(components);
-    }
-
-    private static ActionRow buildListActionRow(List<EventData> events, String authorId, int page) {
-        int totalPages = (int) Math.ceil((double) events.size() / 5.0);
-
-        Button prev = Button.secondary("event:list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
-        Button next = Button.secondary("event:list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
-
-        return ActionRow.of(prev, next);
     }
 
     public static MessageCreateData generateGaugeInterestList(String authorId, int page) {

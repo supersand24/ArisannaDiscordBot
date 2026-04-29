@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import dev.supersand24.cardStore.CardStoreCommand;
 import dev.supersand24.counters.CounterCommand;
 import dev.supersand24.counters.CounterManager;
 import dev.supersand24.events.EventCommand;
@@ -56,6 +57,7 @@ public class Listener extends ListenerAdapter {
         commands.put("payment", new PaymentCommand());
         commands.put("debt", new DebtCommand());
         commands.put("vc", new VoiceCommand());
+        commands.put("cardStore", new CardStoreCommand());
 
         for (Guild guild : e.getJDA().getGuilds()) {
             log.info(guild.getName());

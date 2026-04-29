@@ -1,6 +1,7 @@
 package dev.supersand24;
 
 import com.google.gson.reflect.TypeToken;
+import dev.supersand24.cardStore.CardStoreData;
 import dev.supersand24.counters.CounterData;
 import dev.supersand24.events.EventData;
 import dev.supersand24.expenses.DebtData;
@@ -8,6 +9,8 @@ import dev.supersand24.expenses.ExpenseData;
 import dev.supersand24.expenses.PaymentInfo;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
@@ -109,5 +112,14 @@ public class ArisannaBot {
             }
         }
         return 0L;
+    }
+
+    public static <T> ActionRow buildListActionRow(String id, List<T> items, String authorId, int page) {
+        int totalPages = (int) Math.ceil((double) items.size() / 5.0);
+
+        Button prev = Button.secondary(id + ":list-prev:" + authorId + ":" + page, "◀️ Previous").withDisabled(page == 0);
+        Button next = Button.secondary(id + ":list-next:" + authorId + ":" + page, "Next ▶️").withDisabled(page >= totalPages - 1);
+
+        return ActionRow.of(prev, next);
     }
 }

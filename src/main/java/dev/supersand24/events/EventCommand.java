@@ -45,7 +45,7 @@ public class EventCommand implements ICommand {
          return Commands.slash("event", "Manage travel events.")
                 .addSubcommands(
                         new SubcommandData("create", "Create a new event.")
-                                .addOption(OptionType.STRING, "name", "The name of the new event", true),
+                                .addOption(OptionType.STRING, "name", "The name of the event.", true),
                         new SubcommandData("list", "List all created events."),
                         new SubcommandData("gauge-interest", "List all events we are currently gauging for interest."),
                         new SubcommandData("edit", "Edit the details of an existing event.")
@@ -173,7 +173,7 @@ public class EventCommand implements ICommand {
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[1];
 
-        log.info("Processing " + prefix + " button interaction.");
+        log.info("Processing {} button interaction.", prefix);
 
         String authorId = parts[2];
 
