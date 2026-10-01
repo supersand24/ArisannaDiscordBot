@@ -52,6 +52,31 @@ public class AriVoiceChannel {
                 .useComponentsV2().queue(this::setControlPanel);
     }
 
+    public void findOrSendControlPanel() {
+        VoiceChannel vc = this.voiceChannel;
+        Member self = vc.getGuild().getSelfMember();
+
+        if (!self.hasPermission(vc, Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY)) {
+            sendControlPanel();
+            return;
+        }
+
+        vc.getHistory().retrievePast(25).queue(messages -> {
+            Message existingPanel = messages.stream()
+                    .filter(msg -> msg.getAuthor().getIdLong() == self.getIdLong())
+                    .filter(msg -> msg.getComponents().toString().contains("vc:"))
+                    .findFirst()
+                    .orElse(null);
+
+            if (existingPanel != null) {
+                this.controlPanel = existingPanel;
+                updateControlPanel();
+            } else {
+                sendControlPanel();
+            }
+        }, error -> sendControlPanel());
+    }
+
     private void setControlPanel(Message message) { this.controlPanel = message; }
 
     public void updateControlPanel() {

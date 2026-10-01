@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
+import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,10 +79,14 @@ public class VoiceManager {
 
         newChannel.setPosition(0).setBitrate(guild.getMaxBitrate()).queue(voiceChannel -> {
 
-            guild.moveVoiceMember(member, voiceChannel).queue(
-                    success -> {},
-                    error -> log.error("Failed to move {} to their new channel in '{}': {}", member.getUser().getName(), guild.getName(), error.getMessage())
-            );
+            try {
+                guild.moveVoiceMember(member, voiceChannel).queue(
+                        success -> {},
+                        error -> log.error("Failed to move {} to their new channel in '{}': {}", member.getUser().getName(), guild.getName(), error.getMessage())
+                );
+            } catch (Exception e) {
+                log.error("JDA Validation Error: Blocked from moving user {} in '{}': {}", member.getUser().getName(), guild.getName(), e.getMessage());
+            }
 
             log.info("{} created a New Voice Channel in {}.", member.getUser().getName(), guild.getName());
 
@@ -89,28 +94,34 @@ public class VoiceManager {
             ariVC.addChannelAdmin(member);
             channels.put(voiceChannel.getIdLong(), ariVC);
 
-            voiceChannel.getManager().putMemberPermissionOverride(
-                    member.getIdLong(),
-                    EnumSet.of(Permission.VIEW_CHANNEL, Permission.MANAGE_CHANNEL),
-                    EnumSet.noneOf(Permission.class)
-            ).putRolePermissionOverride(
-                    guild.getPublicRole().getIdLong(),
-                    EnumSet.of(Permission.VIEW_CHANNEL),
-                    EnumSet.noneOf(Permission.class)
-            ).putPermissionOverride(
-                    guild.getSelfMember(),
-                    EnumSet.of(
-                            Permission.VIEW_CHANNEL,
-                            Permission.MANAGE_CHANNEL,
-                            Permission.MANAGE_PERMISSIONS,
-                            Permission.VOICE_CONNECT,
-                            Permission.VOICE_MOVE_OTHERS
-                    ),
-                    EnumSet.noneOf(Permission.class)
-            ).queue(
-                    success -> ariVC.sendControlPanel(),
-                    error -> log.error("Failed to set permission overrides for new channel in '{}': {}", guild.getName(), error.getMessage())
-            );
+            try {
+                voiceChannel.getManager().putMemberPermissionOverride(
+                        member.getIdLong(),
+                        EnumSet.of(Permission.VIEW_CHANNEL, Permission.MANAGE_CHANNEL),
+                        EnumSet.noneOf(Permission.class)
+                ).putRolePermissionOverride(
+                        guild.getPublicRole().getIdLong(),
+                        EnumSet.of(Permission.VIEW_CHANNEL),
+                        EnumSet.noneOf(Permission.class)
+                ).putPermissionOverride(
+                        guild.getSelfMember(),
+                        EnumSet.of(
+                                Permission.VIEW_CHANNEL,
+                                Permission.MANAGE_CHANNEL,
+                                Permission.MANAGE_PERMISSIONS,
+                                Permission.VOICE_CONNECT,
+                                Permission.VOICE_MOVE_OTHERS
+                        ),
+                        EnumSet.noneOf(Permission.class)
+                ).queue(
+                        success -> ariVC.sendControlPanel(),
+                        error -> log.error("Failed to set permission overrides for new channel in '{}': {}", guild.getName(), error.getMessage())
+                );
+            } catch (InsufficientPermissionException e) {
+                log.error("Client-Side Validation Error in '{}': JDA blocked setting overrides. Reason: {}", guild.getName(), e.getMessage());
+            } catch (Exception e) {
+                log.error("Unexpected error setting overrides in '{}': {}", guild.getName(), e.getMessage());
+            }
 
         }, error -> log.error("Failed to create the voice channel in '{}': {}", guild.getName(), error.getMessage()));
     }
@@ -118,12 +129,16 @@ public class VoiceManager {
     public static void hideChannel(AriVoiceChannel voiceChannel) {
         Guild guild = voiceChannel.getVoiceChannel().getGuild();
         if (canManageChannel(voiceChannel.getVoiceChannel())) {
-            voiceChannel.getVoiceChannel().upsertPermissionOverride(guild.getPublicRole())
-                    .deny(Permission.VIEW_CHANNEL)
-                    .queue(
-                            success -> log.info("Hid channel {} in {}", voiceChannel.getVoiceChannel().getName(), guild.getName()),
-                            error -> log.error("API Error hiding channel in '{}': {}", guild.getName(), error.getMessage())
-                    );
+            try {
+                voiceChannel.getVoiceChannel().upsertPermissionOverride(guild.getPublicRole())
+                        .deny(Permission.VIEW_CHANNEL)
+                        .queue(
+                                success -> log.info("Hid channel {} in {}", voiceChannel.getVoiceChannel().getName(), guild.getName()),
+                                error -> log.error("API Error hiding channel in '{}': {}", guild.getName(), error.getMessage())
+                        );
+            } catch (Exception e) {
+                log.error("Client-Side Error hiding channel in '{}': {}", guild.getName(), e.getMessage());
+            }
         } else {
             log.warn("I lack MANAGE_CHANNEL permission to hide '{}' in '{}'.", voiceChannel.getVoiceChannel().getName(), guild.getName());
         }
@@ -132,12 +147,16 @@ public class VoiceManager {
     public static void showChannel(AriVoiceChannel voiceChannel) {
         Guild guild = voiceChannel.getVoiceChannel().getGuild();
         if (canManageChannel(voiceChannel.getVoiceChannel())) {
-            voiceChannel.getVoiceChannel().upsertPermissionOverride(guild.getPublicRole())
-                    .grant(Permission.VIEW_CHANNEL)
-                    .queue(
-                            success -> log.info("Revealed channel {} in {}", voiceChannel.getVoiceChannel().getName(), guild.getName()),
-                            error -> log.error("API Error revealing channel in '{}': {}", guild.getName(), error.getMessage())
-                    );
+            try {
+                voiceChannel.getVoiceChannel().upsertPermissionOverride(guild.getPublicRole())
+                        .grant(Permission.VIEW_CHANNEL)
+                        .queue(
+                                success -> log.info("Revealed channel {} in {}", voiceChannel.getVoiceChannel().getName(), guild.getName()),
+                                error -> log.error("API Error revealing channel in '{}': {}", guild.getName(), error.getMessage())
+                        );
+            } catch (Exception e) {
+                log.error("Client-Side Error revealing channel in '{}': {}", guild.getName(), e.getMessage());
+            }
         } else {
             log.warn("I lack MANAGE_CHANNEL permission to show '{}' in '{}'.", voiceChannel.getVoiceChannel().getName(), guild.getName());
         }
@@ -150,10 +169,14 @@ public class VoiceManager {
     public static void deleteChannel(VoiceChannel voiceChannel) {
         Guild guild = voiceChannel.getGuild();
         if (canManageChannel(voiceChannel)) {
-            voiceChannel.delete().queue(
-                    success -> log.info("Deleted empty auto-channel in {}", guild.getName()),
-                    error -> log.error("API Error deleting channel in '{}': {}", guild.getName(), error.getMessage())
-            );
+            try {
+                voiceChannel.delete().queue(
+                        success -> log.info("Deleted empty auto-channel in {}", guild.getName()),
+                        error -> log.error("API Error deleting channel in '{}': {}", guild.getName(), error.getMessage())
+                );
+            } catch (Exception e) {
+                log.error("Client-Side Error deleting channel in '{}': {}", guild.getName(), e.getMessage());
+            }
         } else {
             log.warn("I lack MANAGE_CHANNEL permission to delete '{}' in '{}'. It will remain stuck.", voiceChannel.getName(), guild.getName());
         }

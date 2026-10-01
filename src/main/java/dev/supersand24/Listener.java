@@ -96,7 +96,7 @@ public class Listener extends ListenerAdapter {
                     }
                 }
 
-                ariVC.sendControlPanel();
+                ariVC.findOrSendControlPanel();
                 channels.put(vc.getIdLong(), ariVC);
             }
         }
