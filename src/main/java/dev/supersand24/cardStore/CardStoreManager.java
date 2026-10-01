@@ -38,36 +38,37 @@ public class CardStoreManager {
 
     private static final String DATA_STORE_NAME = "events";
 
-    public String getIdentifier() {
-        return "cardStore";
+    public static String getIdentifier() {
+        return "card-store";
     }
 
-    public static long createCardStore(String name) {
-        DataPartition<CardStoreData> storePartition = DataStore.get(DATA_STORE_NAME);
+    public static long createCardStore(String guildId, String storeName) {
+        DataPartition<CardStoreData> storePartition = DataStore.get(guildId, DATA_STORE_NAME);
         long newId = storePartition.getAndIncrementId();
         Map<Long, CardStoreData> stores = storePartition.getData();
         CardStoreData cardStore = new CardStoreData();
         cardStore.setId(newId);
+        cardStore.setName(storeName);
         stores.put(newId, cardStore);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
         return cardStore.getId();
     }
 
-    private static CardStoreData getCardStoreById(long eventId) {
-        DataPartition<CardStoreData> storePartition = DataStore.get(DATA_STORE_NAME);
+    private static CardStoreData getCardStoreById(String guildId, long eventId) {
+        DataPartition<CardStoreData> storePartition = DataStore.get(guildId, DATA_STORE_NAME);
         return storePartition.getData().get(eventId);
     }
 
-    public static List<CardStoreData> getAllCardStores() {
-        DataPartition<CardStoreData> storePartition = DataStore.get(DATA_STORE_NAME);
+    public static List<CardStoreData> getAllCardStores(String guildId) {
+        DataPartition<CardStoreData> storePartition = DataStore.get(guildId, DATA_STORE_NAME);
         return new ArrayList<>(storePartition.getData().values())
                 .stream()
                 .sorted(Comparator.comparing(CardStoreData::getId))
                 .collect(Collectors.toList());
     }
 
-    public static MessageCreateData generateListMessage(String authorId, int page) {
-        List<CardStoreData> events = getAllCardStores();
+    public static MessageCreateData generateListMessage(String guildId, String authorId, int page) {
+        List<CardStoreData> events = getAllCardStores(guildId);
         if (events.isEmpty()) {
             return new MessageCreateBuilder().setContent("No stores found matching criteria.").build();
         }
@@ -92,29 +93,29 @@ public class CardStoreManager {
         for (int i = 0; i < itemsPerPage && (startIndex + i) < stores.size(); i++) {
             CardStoreData cardStore = stores.get(startIndex + i);
             components.add(TextDisplay.of("### " + cardStore.getName()));
-            components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, "cardStore:list-zoom:" + authorId + ":" + cardStore.getId(), "Details")));
+            components.add(ActionRow.of(Button.of(ButtonStyle.SECONDARY, getIdentifier() + ":list-zoom:" + authorId + ":" + cardStore.getId(), "Details")));
             components.add(Separator.createDivider(Separator.Spacing.SMALL));
         }
 
         components.add(TextDisplay.of("-# Page " + (page + 1) + " of " + totalPages));
-        components.add(ArisannaBot.buildListActionRow("cardStore", stores, authorId, page));
+        components.add(ArisannaBot.buildListActionRow(getIdentifier(), stores, authorId, page));
 
         return Container.of(components);
     }
 
-    public static MessageCreateData generateDetailMessage(String authorId, int index) {
+    public static MessageCreateData generateDetailMessage(String guildId, String authorId, int index) {
         return new MessageCreateBuilder()
-                .addComponents(buildDetailContainer(index, authorId))
+                .addComponents(buildDetailContainer(guildId, index, authorId))
                 .useComponentsV2()
                 .build();
     }
 
-    public static Container buildDetailContainer(int index, String authorId) {
-        CardStoreData store = getCardStoreById(index);
+    public static Container buildDetailContainer(String guildId, int index, String authorId) {
+        CardStoreData store = getCardStoreById(guildId, index);
 
         if (store == null) {
             log.error("Could not find Card Store #{} to show Details.", index);
-            return buildListContainer(getAllCardStores(), 0, authorId);
+            return buildListContainer(getAllCardStores(guildId), 0, authorId);
         }
 
         List<ContainerChildComponent> components = new ArrayList<>();
@@ -130,15 +131,15 @@ public class CardStoreManager {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("-# Card Store ID: " + store.getId()));
         components.add(ActionRow.of(
-                Button.primary("cardStore:edit:" + authorId + ":" + index, "Edit"),
-                Button.danger("cardStore:detail-back:" + authorId, "List")
+                Button.primary(getIdentifier() + ":edit:" + authorId + ":" + index, "Edit"),
+                Button.danger(getIdentifier() + ":detail-back:" + authorId, "List")
         ));
 
         return Container.of(components);
     }
 
-    public static Container generateEditContainer(int index, String authorId) {
-        CardStoreData store = getCardStoreById(index);
+    public static Container generateEditContainer(String guildId, int index, String authorId) {
+        CardStoreData store = getCardStoreById(guildId, index);
 
         List<ContainerChildComponent> components = new ArrayList<>();
 
@@ -146,38 +147,38 @@ public class CardStoreManager {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("Click on the different buttons/drop downs to edit values for this store."));
         components.add(ActionRow.of(
-                Button.secondary("cardStore:edit-name:" + authorId + ":" + store.getId(), "Name"),
-                Button.secondary("cardStore:edit-address:" + authorId + ":" + store.getId(), "Address"),
-                Button.secondary("cardStore:edit-website:" + authorId + ":" + store.getId(), "Website")
+                Button.secondary(getIdentifier() + ":edit-name:" + authorId + ":" + store.getId(), "Name"),
+                Button.secondary(getIdentifier() + ":edit-address:" + authorId + ":" + store.getId(), "Address"),
+                Button.secondary(getIdentifier() + ":edit-website:" + authorId + ":" + store.getId(), "Website")
         ));
 
         components.add(TextDisplay.of("Card Store Actions"));
         components.add(ActionRow.of(
-                Button.danger("event:edit-delete:" + authorId + ":" + store.getId(), "Delete Event")
+                Button.danger(getIdentifier() + ":edit-delete:" + authorId + ":" + store.getId(), "Delete Card Store")
         ));
 
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(ActionRow.of(
-                Button.primary("cardStore:edit-view:" + authorId + ":" + store.getId(), "View Event"),
-                Button.secondary("cardStore:edit-view-list:" + authorId + ":" + store.getId(), "View List")
+                Button.primary(getIdentifier() + ":edit-view:" + authorId + ":" + store.getId(), "View Store"),
+                Button.secondary(getIdentifier() + ":edit-view-list:" + authorId + ":" + store.getId(), "View List")
         ));
 
         return Container.of(components);
     }
 
-    public static Modal generateEditNameModal(int eventIndex) {
-        CardStoreData store = getCardStoreById(eventIndex);
+    public static Modal generateEditNameModal(String guildId, int eventIndex) {
+        CardStoreData store = getCardStoreById(guildId, eventIndex);
 
-        return Modal.create("cardStore:edit-name:" + eventIndex, "Edit Name of Card Store # " + store.getId())
+        return Modal.create(getIdentifier() + ":edit-name:" + eventIndex, "Edit Name of Card Store # " + store.getId())
                 .addComponents(
                         Label.of("Name", TextInput.create("name", TextInputStyle.SHORT).setPlaceholder(store.getName()).build())
                 ).build();
     }
 
-    public static Modal generateEditAddressModal(int eventIndex) {
-        CardStoreData store = getCardStoreById(eventIndex);
+    public static Modal generateEditAddressModal(String guildId, int eventIndex) {
+        CardStoreData store = getCardStoreById(guildId, eventIndex);
 
-        return Modal.create("cardStore:edit-address:" + eventIndex, "Edit Address of Card Store # " + store.getId())
+        return Modal.create(getIdentifier() + ":edit-address:" + eventIndex, "Edit Address of Card Store # " + store.getId())
                 .addComponents(
                         Label.of("Address", TextInput.create("address", TextInputStyle.SHORT)
                                 .setPlaceholder(store.getAddress().isBlank() ? "123 Main Street" : store.getAddress())
@@ -185,10 +186,10 @@ public class CardStoreManager {
                 ).build();
     }
 
-    public static Modal generateEditWebsiteModal(int eventIndex) {
-        CardStoreData store = getCardStoreById(eventIndex);
+    public static Modal generateEditWebsiteModal(String guildId, int eventIndex) {
+        CardStoreData store = getCardStoreById(guildId, eventIndex);
 
-        return Modal.create("cardStore:edit-website:" + eventIndex, "Edit Website Link of Card Store # " + store.getId())
+        return Modal.create(getIdentifier() + ":edit-website:" + eventIndex, "Edit Website Link of Card Store # " + store.getId())
                 .addComponents(
                         Label.of("Website", TextInput.create("website", TextInputStyle.SHORT)
                                 .setPlaceholder(store.getWebsite().isBlank() ? "https://www.website.com/..." : store.getWebsite())
@@ -196,15 +197,15 @@ public class CardStoreManager {
                 ).build();
     }
 
-    public static Modal generateDeleteCardStoreModel(int eventIndex) {
-        CardStoreData store = getCardStoreById(eventIndex);
+    public static Modal generateDeleteCardStoreModel(String guildId, int eventIndex) {
+        CardStoreData store = getCardStoreById(guildId, eventIndex);
 
         if (store == null) {
             log.error("Could not find Card Store # {} to Delete.", eventIndex);
             return null;
         }
 
-        return Modal.create("cardStore:edit-delete:" + eventIndex, "Delete Card Store # " + store.getId())
+        return Modal.create(getIdentifier() + ":edit-delete:" + eventIndex, "Delete Card Store # " + store.getId())
                 .addComponents(
                         Label.of("Enter Card Store Name to Confirm Deletion", TextInput.create("name", TextInputStyle.SHORT)
                                 .setPlaceholder(store.getName())

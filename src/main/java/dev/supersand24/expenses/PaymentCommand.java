@@ -56,13 +56,17 @@ public class PaymentCommand implements ICommand {
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {
+
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         switch (e.getSubcommandName()) {
             case "add" -> {
                 String optionName = e.getOption("name").getAsString();
                 double optionAmount = e.getOption("amount").getAsDouble();
 
                 //Temp
-                long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId(), EventManager.getAllEvents().getFirst());
+                long expenseId = ExpenseManager.createExpense(guildId, optionName, optionAmount, e.getUser().getId(), EventManager.getAllEvents(guildId).getFirst());
 
                 e.replyComponents(Container.of(
                         TextDisplay.of("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense."),
@@ -81,7 +85,7 @@ public class PaymentCommand implements ICommand {
                 long expenseId = e.getOption("id") != null ? e.getOption("id").getAsLong() : -1;
                 e.deferReply().queue();
 
-                List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted();
+                List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted(guildId);
                 int initialIndex = -1;
 
                 for (int i = 0; i < sortedExpenses.size(); i++) {
@@ -96,7 +100,7 @@ public class PaymentCommand implements ICommand {
                     return;
                 }
 
-                MessageCreateData messageData = ExpenseManager.generateExpenseDetailMessage(e.getUser().getId(), initialIndex);
+                MessageCreateData messageData = ExpenseManager.generateExpenseDetailMessage(guildId, e.getUser().getId(), initialIndex);
                 e.getHook().sendMessage(messageData).queue();
             }
             case "list" -> {
@@ -104,35 +108,15 @@ public class PaymentCommand implements ICommand {
                 User userFilter = e.getOption("user") != null ? e.getOption("user").getAsUser() : null;
                 String targetId = (userFilter == null) ? "all" : userFilter.getId();
 
-                MessageCreateData messageData = ExpenseManager.buildExpenseListPage(0, e.getUser().getId(), targetId);
+                MessageCreateData messageData = ExpenseManager.buildExpenseListPage(guildId, 0, e.getUser().getId(), targetId);
                 e.getHook().sendMessage(messageData).queue();
             }
             case "settleup" -> {
-                e.getHook().sendMessageComponents(ExpenseManager.buildPaymentInfoDetailContainer())
+                e.getHook().sendMessageComponents(ExpenseManager.buildPaymentInfoDetailContainer(guildId))
                         .useComponentsV2()
                         .queue();
             }
         }
-    }
-
-    @Override
-    public void handleButtonInteraction(ButtonInteractionEvent e) {
-
-    }
-
-    @Override
-    public void handleStringSelectInteraction(StringSelectInteractionEvent e) {
-
-    }
-
-    @Override
-    public void handleEntitySelectInteraction(EntitySelectInteractionEvent e) {
-
-    }
-
-    @Override
-    public void handleModalInteraction(ModalInteractionEvent e) {
-
     }
 
 }

@@ -68,19 +68,25 @@ public class CounterCommand implements ICommand {
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {
 
+        if (e.getGuild() == null){
+            e.reply("This command can only be used inside a server!").setEphemeral(true).queue();
+            return;
+        }
+
+        String guildId = e.getGuild().getId();
         User commandUser = e.getUser();
 
         //If trying to create a Counter, handle first
         if (e.getFullCommandName().equals("counter create")) {
             String optionName = e.getOption("name").getAsString();
-            if (CounterManager.getCounterNames().contains(optionName)) {
+            if (CounterManager.getCounterNames(guildId).contains(optionName)) {
                 e.reply(optionName + " counter already exists!").setEphemeral(true).queue();
             } else {
                 String optionDescription = e.getOption("description").getAsString();
                 int initialValue = e.getOption("initial-value") != null ? e.getOption("initial-value").getAsInt() : 0;
                 int minValue = e.getOption("min-value") != null ? e.getOption("min-value").getAsInt() : 0;
                 int maxValue = e.getOption("max-value") != null ? e.getOption("max-value").getAsInt() : Integer.MAX_VALUE;
-                CounterManager.createCounter(optionName, optionDescription, initialValue, minValue, maxValue, commandUser.getId());
+                CounterManager.createCounter(guildId, optionName, optionDescription, initialValue, minValue, maxValue, commandUser.getId());
                 e.reply(optionName + " counter was created!").queue();
             }
             return;
@@ -89,13 +95,13 @@ public class CounterCommand implements ICommand {
         String counterName = e.getOption("counter").getAsString();
 
         //Check to see if Counter exists
-        if (!CounterManager.getCounterNames().contains(counterName)) {
+        if (!CounterManager.getCounterNames(e.getGuild().getId()).contains(counterName)) {
             e.reply("I can't find a counter named " + counterName + "!").setEphemeral(true).queue();
             return;
         }
 
         //Check to see if user has editing access
-        if (!CounterManager.canEdit(counterName, commandUser.getId())) {
+        if (!CounterManager.canEdit(guildId, counterName, commandUser.getId())) {
             e.reply("You don't have editing access on " + counterName + " counter.").setEphemeral(true).queue();
             return;
         }
@@ -105,21 +111,21 @@ public class CounterCommand implements ICommand {
             case null -> {
                 switch (e.getSubcommandName()) {
                     case "increment" -> {
-                        CounterManager.increment(counterName);
-                        e.reply(counterName + " counter incremented to " + CounterManager.getValue(counterName) + ".").queue();
+                        CounterManager.increment(guildId, counterName);
+                        e.reply(counterName + " counter incremented to " + CounterManager.getValue(guildId, counterName) + ".").queue();
                     }
                     case "decrement" -> {
-                        CounterManager.decrement(counterName);
-                        e.reply(counterName + " counter decremented to " + CounterManager.getValue(counterName) + ".").queue();
+                        CounterManager.decrement(guildId, counterName);
+                        e.reply(counterName + " counter decremented to " + CounterManager.getValue(guildId, counterName) + ".").queue();
                     }
                     case "set" -> {
                         int value = e.getOption("value").getAsInt();
-                        CounterManager.setValue(counterName, value);
+                        CounterManager.setValue(guildId, counterName, value);
                         e.reply(counterName + " counter set to " + value + ".").queue();
                     }
-                    case "display" -> e.replyEmbeds(CounterManager.getCounterEmbed(counterName)).queue();
+                    case "display" -> e.replyEmbeds(CounterManager.getCounterEmbed(guildId, counterName)).queue();
                     case "delete" -> {
-                        CounterManager.deleteCounter(counterName);
+                        CounterManager.deleteCounter(guildId, counterName);
                         e.reply(counterName + " counter was deleted!").queue();
                     }
                 }
@@ -129,16 +135,16 @@ public class CounterCommand implements ICommand {
 
                 switch (e.getSubcommandName()) {
                     case "add" -> {
-                        if (CounterManager.canEdit(counterName, editor.getId())) {
+                        if (CounterManager.canEdit(guildId, counterName, editor.getId())) {
                             e.reply(editor.getName() + " is already authorized on " + counterName + " counter.").setEphemeral(true).queue();
                         } else {
-                            CounterManager.addEditor(counterName, editor.getId());
+                            CounterManager.addEditor(guildId, counterName, editor.getId());
                             e.reply(editor.getName() + " is now an editor of " + counterName + " counter.").setEphemeral(true).queue();
                         }
                     }
                     case "remove" -> {
-                        if (CounterManager.canEdit(counterName, editor.getId())) {
-                            CounterManager.removeEditor(counterName, editor.getId());
+                        if (CounterManager.canEdit(guildId, counterName, editor.getId())) {
+                            CounterManager.removeEditor(guildId, counterName, editor.getId());
                             e.reply(editor.getName() + " is no longer an editor of " + counterName + " counter.").setEphemeral(true).queue();
                         } else {
                             e.reply(editor.getName() + " is not currently authorized on " + counterName + " counter.").setEphemeral(true).queue();
@@ -148,26 +154,6 @@ public class CounterCommand implements ICommand {
             }
             default -> throw new IllegalStateException("Unexpected value: " + e.getSubcommandGroup());
         }
-    }
-
-    @Override
-    public void handleButtonInteraction(ButtonInteractionEvent e) {
-
-    }
-
-    @Override
-    public void handleStringSelectInteraction(StringSelectInteractionEvent e) {
-
-    }
-
-    @Override
-    public void handleEntitySelectInteraction(EntitySelectInteractionEvent e) {
-
-    }
-
-    @Override
-    public void handleModalInteraction(ModalInteractionEvent e) {
-
     }
 
 }

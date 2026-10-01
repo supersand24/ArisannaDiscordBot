@@ -13,14 +13,14 @@ public interface ICommand {
 
     CommandData getCommandData();
 
-    void handleSlashCommand(SlashCommandInteractionEvent e);
+    default void handleSlashCommand(SlashCommandInteractionEvent e) {}
 
-    void handleButtonInteraction(ButtonInteractionEvent e);
+    default void handleButtonInteraction(ButtonInteractionEvent e) {}
 
-    void handleStringSelectInteraction(StringSelectInteractionEvent e);
+    default void handleStringSelectInteraction(StringSelectInteractionEvent e) {}
 
-    void handleEntitySelectInteraction(EntitySelectInteractionEvent e);
+    default void handleEntitySelectInteraction(EntitySelectInteractionEvent e) {}
 
-    void handleModalInteraction(ModalInteractionEvent e);
+    default void handleModalInteraction(ModalInteractionEvent e) {}
 
 }

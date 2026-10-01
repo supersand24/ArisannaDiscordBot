@@ -35,9 +35,13 @@ public class RolesCommand implements ICommand {
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {
+
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         List<EventData> events = new ArrayList<>();
         long today = LocalDate.now().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
-        for (EventData event : EventManager.getAllEvents()) {
+        for (EventData event : EventManager.getAllEvents(guildId)) {
             if (event.getStartDate() > today)
                 events.add(event);
         }
@@ -66,9 +70,12 @@ public class RolesCommand implements ICommand {
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
 
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         if (prefix.startsWith("role-select")) {
             String roleId = parts[1];
-            Role role = EventManager.getRole(Long.parseLong(roleId));
+            Role role = EventManager.getRole(guildId, Long.parseLong(roleId));
 
             if (role == null) {
                 e.reply("Sorry there was an issue, I can't find the role you need!").setEphemeral(true).queue();

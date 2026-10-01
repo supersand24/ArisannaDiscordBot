@@ -57,13 +57,17 @@ public class ExpenseCommand implements ICommand {
 
     @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {
+
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         switch (e.getSubcommandName()) {
             case "add" -> {
                 String optionName = e.getOption("name").getAsString();
                 double optionAmount = e.getOption("amount").getAsDouble();
 
                 //Temp
-                long expenseId = ExpenseManager.createExpense(optionName, optionAmount, e.getUser().getId(), EventManager.getAllEvents().getFirst());
+                long expenseId = ExpenseManager.createExpense(guildId, optionName, optionAmount, e.getUser().getId(), EventManager.getAllEvents(guildId).getFirst());
 
                 e.replyComponents(Container.of(
                         TextDisplay.of("Created " + CurrencyUtils.formatAsUSD(optionAmount) + " expense."),
@@ -82,7 +86,7 @@ public class ExpenseCommand implements ICommand {
                 long expenseId = e.getOption("id") != null ? e.getOption("id").getAsLong() : -1;
                 e.deferReply().queue();
 
-                List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted();
+                List<ExpenseData> sortedExpenses = ExpenseManager.getExpensesSorted(guildId);
                 int initialIndex = -1;
 
                 for (int i = 0; i < sortedExpenses.size(); i++) {
@@ -97,7 +101,7 @@ public class ExpenseCommand implements ICommand {
                     return;
                 }
 
-                MessageCreateData messageData = ExpenseManager.generateExpenseDetailMessage(e.getUser().getId(), initialIndex);
+                MessageCreateData messageData = ExpenseManager.generateExpenseDetailMessage(guildId, e.getUser().getId(), initialIndex);
                 e.getHook().sendMessage(messageData).queue();
             }
             case "list" -> {
@@ -105,11 +109,11 @@ public class ExpenseCommand implements ICommand {
                 User userFilter = e.getOption("user") != null ? e.getOption("user").getAsUser() : null;
                 String targetId = (userFilter == null) ? "all" : userFilter.getId();
 
-                MessageCreateData messageData = ExpenseManager.buildExpenseListPage(0, e.getUser().getId(), targetId);
+                MessageCreateData messageData = ExpenseManager.buildExpenseListPage(guildId, 0, e.getUser().getId(), targetId);
                 e.getHook().sendMessage(messageData).queue();
             }
             case "settleup" -> {
-                e.getHook().sendMessageComponents(ExpenseManager.buildPaymentInfoDetailContainer())
+                e.getHook().sendMessageComponents(ExpenseManager.buildPaymentInfoDetailContainer(guildId))
                         .useComponentsV2()
                         .queue();
             }
@@ -120,6 +124,9 @@ public class ExpenseCommand implements ICommand {
     public void handleButtonInteraction(ButtonInteractionEvent e) {
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
+
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
 
         if (prefix.startsWith("expense-")) {
             String authorId = parts[1];
@@ -132,7 +139,7 @@ public class ExpenseCommand implements ICommand {
             if (prefix.equals("expense-edit")) {
 
                 int index = Integer.parseInt(parts[2]);
-                e.editComponents(ExpenseManager.generateExpenseEditMessage(authorId, index).getComponents())
+                e.editComponents(ExpenseManager.generateExpenseEditMessage(guildId, authorId, index).getComponents())
                         .useComponentsV2()
                         .queue();
 
@@ -141,21 +148,21 @@ public class ExpenseCommand implements ICommand {
                 int index = Integer.parseInt(parts[2]);
 
                 switch (prefix) {
-                    case "expense-edit-name" -> e.replyModal(ExpenseManager.generateEditExpenseNameModal(index)).queue();
-                    case "expense-edit-amount" -> e.replyModal(ExpenseManager.generateEditExpenseAmountModal(index)).queue();
-                    case "expense-edit-event" -> e.replyModal(ExpenseManager.generateEditExpenseEventLinkedModal(index)).queue();
+                    case "expense-edit-name" -> e.replyModal(ExpenseManager.generateEditExpenseNameModal(guildId, index)).queue();
+                    case "expense-edit-amount" -> e.replyModal(ExpenseManager.generateEditExpenseAmountModal(guildId, index)).queue();
+                    case "expense-edit-event" -> e.replyModal(ExpenseManager.generateEditExpenseEventLinkedModal(guildId, index)).queue();
                     case "expense-edit-delete" -> {
-                        Modal modal = ExpenseManager.generateDeleteExpenseModel(index);
+                        Modal modal = ExpenseManager.generateDeleteExpenseModel(guildId, index);
                         if (modal == null)
                             e.reply("Could not delete non existing expense!").setEphemeral(true).queue();
                         else
                             e.replyModal(modal).queue();
                     }
-                    case "expense-edit-view" -> e.editComponents(ExpenseManager.buildExpenseDetailContainer(index, authorId))
+                    case "expense-edit-view" -> e.editComponents(ExpenseManager.buildExpenseDetailContainer(guildId, index, authorId))
                             .useComponentsV2()
                             .queue();
                     case "expense-edit-view-list" ->
-                            e.editComponents(ExpenseManager.buildExpenseListContainer(ExpenseManager.getExpensesSorted(), 0, authorId))
+                            e.editComponents(ExpenseManager.buildExpenseListContainer(ExpenseManager.getExpensesSorted(guildId), 0, authorId))
                                     .useComponentsV2()
                                     .queue();
                     default -> {
@@ -175,14 +182,14 @@ public class ExpenseCommand implements ICommand {
                     case "expense-list-prev", "expense-list-next" -> {
                         int currentPage = Integer.parseInt(parts[2]);
                         int newPage = prefix.equals("expense-list-next") ? currentPage + 1 : currentPage - 1;
-                        data = ExpenseManager.generateExpenseListMessage(authorId, newPage);
+                        data = ExpenseManager.generateExpenseListMessage(guildId, authorId, newPage);
                     }
                     case "expense-list-zoom" -> {
                         int index = Integer.parseInt(parts[2]);
-                        data = ExpenseManager.generateExpenseDetailMessage(authorId, index);
+                        data = ExpenseManager.generateExpenseDetailMessage(guildId, authorId, index);
                     }
                     case "expense-detail-back" -> {
-                        data = ExpenseManager.generateExpenseListMessage(authorId, 0);
+                        data = ExpenseManager.generateExpenseListMessage(guildId, authorId, 0);
                     }
                 }
 
@@ -200,6 +207,9 @@ public class ExpenseCommand implements ICommand {
         String prefix = parts[0];
         String authorId = parts.length > 1 ? parts[1] : "";
 
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         if (prefix.equals("expense-list-zoom")) {
             if (!e.getUser().getId().equals(authorId)) {
                 e.reply("You cannot use these buttons.").setEphemeral(true).queue();
@@ -207,7 +217,7 @@ public class ExpenseCommand implements ICommand {
             }
 
             int index = Integer.parseInt(e.getValues().get(0));
-            e.editComponents(ExpenseManager.buildExpenseDetailContainer(index, authorId))
+            e.editComponents(ExpenseManager.buildExpenseDetailContainer(guildId, index, authorId))
                     .useComponentsV2()
                     .queue();
         }
@@ -218,10 +228,13 @@ public class ExpenseCommand implements ICommand {
         String[] parts = e.getComponentId().split(":");
         String prefix = parts[0];
 
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         if (prefix.equals("expense-beneficiary-select")) {
             long expenseId = Long.parseLong(parts[1]);
 
-            if (!ExpenseManager.exists(expenseId)) {
+            if (!ExpenseManager.exists(guildId, expenseId)) {
                 log.error("Could not find expense: " + expenseId);
                 e.reply("This expense doesn't exist in my library!").setEphemeral(true).queue();
                 return;
@@ -229,12 +242,12 @@ public class ExpenseCommand implements ICommand {
 
             List<User> beneficiaries = e.getMentions().getUsers();
 
-            ExpenseManager.addBenefactors(expenseId, beneficiaries);
+            ExpenseManager.addBenefactors(guildId, expenseId, beneficiaries);
 
             if (beneficiaries.size() == 1) {
-                e.reply("Added 1 person to " + ExpenseManager.getExpenseName(expenseId) + " expense.").setEphemeral(true).queue();
+                e.reply("Added 1 person to " + ExpenseManager.getExpenseName(guildId, expenseId) + " expense.").setEphemeral(true).queue();
             } else {
-                e.reply("Added " + beneficiaries.size() + " people to " + ExpenseManager.getExpenseName(expenseId) + " expense.").setEphemeral(true).queue();
+                e.reply("Added " + beneficiaries.size() + " people to " + ExpenseManager.getExpenseName(guildId, expenseId) + " expense.").setEphemeral(true).queue();
             }
         } else if (prefix.equals("expense-edit-payer")) {
             String authorId = parts[1];
@@ -245,7 +258,7 @@ public class ExpenseCommand implements ICommand {
             }
 
             int index = Integer.parseInt(parts[2]);
-            ExpenseManager.setExpensePayer(index, e.getMentions().getUsers().getFirst().getId());
+            ExpenseManager.setExpensePayer(guildId, index, e.getMentions().getUsers().getFirst().getId());
             e.reply("Payer Updated").setEphemeral(true).queue();
         } else if (prefix.equals("expense-edit-beneficiary")) {
             String authorId = parts[1];
@@ -256,7 +269,7 @@ public class ExpenseCommand implements ICommand {
             }
 
             int index = Integer.parseInt(parts[2]);
-            ExpenseManager.addBenefactors(index, e.getMentions().getUsers());
+            ExpenseManager.addBenefactors(guildId, index, e.getMentions().getUsers());
             e.reply("Benefactors Updated").setEphemeral(true).queue();
         }
     }
@@ -266,6 +279,9 @@ public class ExpenseCommand implements ICommand {
         String[] parts = e.getModalId().split(":");
         String prefix = parts[0];
 
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
+
         if (prefix.startsWith("expense-edit-")) {
             long expenseIndex = Long.parseLong(parts[1]);
 
@@ -274,7 +290,7 @@ public class ExpenseCommand implements ICommand {
                     boolean hasChanged = false;
                     ModalMapping name = e.getValue("name");
                     if (name != null) {
-                        ExpenseManager.setExpenseName(expenseIndex, name.getAsString());
+                        ExpenseManager.setExpenseName(guildId, expenseIndex, name.getAsString());
                         hasChanged = true;
                     }
                     e.reply(hasChanged ? "Name updated successfully!" : "No changes were made.").setEphemeral(true).queue();
@@ -284,7 +300,7 @@ public class ExpenseCommand implements ICommand {
                     if (name != null) {
                         try {
                             double amount = Double.parseDouble(name.getAsString());
-                            ExpenseManager.setExpenseAmount(expenseIndex, amount);
+                            ExpenseManager.setExpenseAmount(guildId, expenseIndex, amount);
                             e.reply("Amount updated successfully!").setEphemeral(true).queue();
                         } catch (NumberFormatException ex) {
                             e.reply("Invalid format. Please enter a valid number (e.g., 12.34).").setEphemeral(true).queue();
@@ -297,10 +313,10 @@ public class ExpenseCommand implements ICommand {
                         String eventName = name.getAsString();
                         EventData event = null;
 
-                        for (EventData eve : EventManager.getAllEvents()) {
+                        for (EventData eve : EventManager.getAllEvents(guildId)) {
                             if (eventName.equals(eve.getName())) {
                                 event = eve;
-                                System.out.println("Cound VEvent");
+                                System.out.println("Cound VEvent??????");
                             }
                         }
 
@@ -309,7 +325,7 @@ public class ExpenseCommand implements ICommand {
                         }
                         else
                         {
-                            ExpenseManager.setExpenseLinkedEvent(expenseIndex, event);
+                            ExpenseManager.setExpenseLinkedEvent(guildId, expenseIndex, event);
                             e.reply("Linked Event updated successfully!").setEphemeral(true).queue();
                         }
                     }
@@ -317,8 +333,8 @@ public class ExpenseCommand implements ICommand {
                 case "expense-edit-delete" -> {
                     ModalMapping name = e.getValue("name");
                     if (name == null) { e.reply("There was an issue deleting the expense!").setEphemeral(true).queue(); return; }
-                    if (name.getAsString().equals(ExpenseManager.getExpenseName(expenseIndex))) {
-                        if (EventManager.deleteEvent(expenseIndex))
+                    if (name.getAsString().equals(ExpenseManager.getExpenseName(guildId, expenseIndex))) {
+                        if (EventManager.deleteEvent(guildId, expenseIndex))
                             e.reply(name.getAsString() + " was deleted!").setEphemeral(true).queue();
                         else
                             e.reply("There was an issue deleting the expense!").setEphemeral(true).queue();

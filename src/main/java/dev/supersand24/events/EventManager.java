@@ -43,14 +43,14 @@ public class EventManager {
      *
      * @param name The name of the new event (e.g., "PAX East 2025").
      */
-    public static long createEvent(String name) {
-        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+    public static long createEvent(String guildId, String name) {
+        DataPartition<EventData> eventPartition = DataStore.get(guildId, DATA_STORE_NAME);
         long newId = eventPartition.getAndIncrementId();
         Map<Long, EventData> events = eventPartition.getData();
         EventData event = new EventData(name);
         event.setId(newId);
         events.put(newId, event);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
         return event.getId();
     }
 
@@ -59,8 +59,8 @@ public class EventManager {
      * @param eventId The ID of the event to find.
      * @return The Event object, or null if not found.
      */
-    private static EventData getEventById(long eventId) {
-        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+    private static EventData getEventById(String guildId, long eventId) {
+        DataPartition<EventData> eventPartition = DataStore.get(guildId, DATA_STORE_NAME);
         return eventPartition.getData().get(eventId);
     }
 
@@ -68,16 +68,16 @@ public class EventManager {
      * Retrieves a list of all created events, sorted by their ID.
      * @return A sorted list of all events.
      */
-    public static List<EventData> getAllEvents() {
-        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+    public static List<EventData> getAllEvents(String guildId) {
+        DataPartition<EventData> eventPartition = DataStore.get(guildId, DATA_STORE_NAME);
         return new ArrayList<>(eventPartition.getData().values())
                 .stream()
                 .sorted(Comparator.comparing(EventData::getId))
                 .collect(Collectors.toList());
     }
 
-    public static List<EventData> getAllEventsGaugingInterest() {
-        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+    public static List<EventData> getAllEventsGaugingInterest(String guildId) {
+        DataPartition<EventData> eventPartition = DataStore.get(guildId, DATA_STORE_NAME);
         return new ArrayList<>(eventPartition.getData().values())
                 .stream()
                 .filter(EventData::isGaugeInterest)
@@ -85,104 +85,109 @@ public class EventManager {
                 .collect(Collectors.toList());
     }
 
-    public static void setEventName(long index, String newName) {
-        EventData event = getEventById(index);
+    public static void setEventName(String guildId, long index, String newName) {
+        EventData event = getEventById(guildId, index);
         event.setName(newName);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static String getEventName(long index) {
-        EventData event = getEventById(index);
+    public static String getEventName(String guildId, long index) {
+        EventData event = getEventById(guildId, index);
         return event == null ? "Unknown Event" : event.getName();
     }
 
-    public static void setStartDate(long index, long newStartDate) {
-        EventData event = getEventById(index);
+    public static void setStartDate(String guildId, long index, long newStartDate) {
+        EventData event = getEventById(guildId, index);
         event.setStartDate(newStartDate);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static void setEndDate(long index, long newEndDate) {
-        EventData event = getEventById(index);
+    public static void setEndDate(String guildId, long index, long newEndDate) {
+        EventData event = getEventById(guildId, index);
         event.setEndDate(newEndDate);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static void setRoleId(long index, long newRoleId) {
-        EventData event = getEventById(index);
+    public static void setRoleId(String guildId, long index, long newRoleId) {
+        EventData event = getEventById(guildId, index);
         event.setRoleId(newRoleId);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static Role getRole(long index) {
-        EventData event = getEventById(index);
+    public static Role getRole(String guildId, long index) {
+        EventData event = getEventById(guildId, index);
         return ArisannaBot.getAriGuild().getRoleById(event.getRoleId());
     }
 
-    public static void setChannelId(long index, long newChannelId) {
-        EventData event = getEventById(index);
+    public static void setChannelId(String guildId, long index, long newChannelId) {
+        EventData event = getEventById(guildId, index);
         event.setChannelId(newChannelId);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static void setAddress(long index, String newAddress) {
-        EventData event = getEventById(index);
+    public static void setAddress(String guildId, long index, String newAddress) {
+        EventData event = getEventById(guildId, index);
         event.setAddress(newAddress);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static void setOmnidexLink(long index, String newOmnidexLink) {
-        EventData event = getEventById(index);
+    public static void setOmnidexLink(String guildId, long index, String newOmnidexLink) {
+        EventData event = getEventById(guildId, index);
         event.setOmnidexLink(newOmnidexLink);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static void setTicketLink(long index, String newTicketLink) {
-        EventData event = getEventById(index);
+    public static void setTicketLink(String guildId, long index, String newTicketLink) {
+        EventData event = getEventById(guildId, index);
         event.setTicketLink(newTicketLink);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static boolean isGaugeInterest(long index) {
-        EventData event = getEventById(index);
+    public static boolean isGaugeInterest(String guildId, long index) {
+        EventData event = getEventById(guildId, index);
         return event.isGaugeInterest();
     }
 
-    public static void setGaugeInterest(long index, boolean newGaugeInterest) {
-        EventData event = getEventById(index);
+    public static void setGaugeInterest(String guildId, long index, boolean newGaugeInterest) {
+        EventData event = getEventById(guildId, index);
         event.setGaugeInterest(newGaugeInterest);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static boolean isMemberInterested(long eventIndex, Member member) {
-        EventData event = getEventById(eventIndex);
+    public static boolean isMemberInterested(String guildId, long eventIndex, Member member) {
+        EventData event = getEventById(guildId, eventIndex);
         return event.getInterestedMembers().contains(member.getIdLong());
     }
 
-    public static void addInterestedMember(long eventIndex, Member member) {
-        EventData event = getEventById(eventIndex);
+    public static List<Long> getMembersInterested(String guildId, long eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
+        return event.getInterestedMembers();
+    }
+
+    public static void addInterestedMember(String guildId, long eventIndex, Member member) {
+        EventData event = getEventById(guildId, eventIndex);
         event.addInterestedMember(member.getIdLong());
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static void removeInterestedMember(long eventIndex, Member member) {
-        EventData event = getEventById(eventIndex);
+    public static void removeInterestedMember(String guildId, long eventIndex, Member member) {
+        EventData event = getEventById(guildId, eventIndex);
         event.removeInterestedMember(member.getIdLong());
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
     }
 
-    public static boolean deleteEvent(long index) {
-        EventData event = getEventById(index);
+    public static boolean deleteEvent(String guildId, long index) {
+        EventData event = getEventById(guildId, index);
         if (event == null) return false;
-        DataPartition<EventData> eventPartition = DataStore.get(DATA_STORE_NAME);
+        DataPartition<EventData> eventPartition = DataStore.get(guildId, DATA_STORE_NAME);
         Map<Long, EventData> events = eventPartition.getData();
         events.remove(index);
-        DataStore.markDirty(DATA_STORE_NAME);
+        DataStore.markDirty(guildId, DATA_STORE_NAME);
         return true;
     }
 
-    public static MessageCreateData generateListMessage(String authorId, int page) {
-        List<EventData> events = EventManager.getAllEvents();
+    public static MessageCreateData generateListMessage(String guildId, String authorId, int page) {
+        List<EventData> events = EventManager.getAllEvents(guildId);
         if (events.isEmpty()) {
             return new MessageCreateBuilder().setContent("No events found matching criteria.").build();
         }
@@ -217,18 +222,18 @@ public class EventManager {
         return Container.of(components);
     }
 
-    public static MessageCreateData generateGaugeInterestList(String authorId, int page) {
-        List<EventData> events = EventManager.getAllEventsGaugingInterest();
+    public static MessageCreateData generateGaugeInterestList(String guildId, int page) {
+        List<EventData> events = EventManager.getAllEventsGaugingInterest(guildId);
         if (events.isEmpty()) {
             return new MessageCreateBuilder().setContent("We are not currently gauging interest in any events.").build();
         }
         return new MessageCreateBuilder()
-                .addComponents(buildGaugeInterestListContainer(events, page, authorId))
+                .addComponents(buildGaugeInterestListContainer(events, page))
                 .useComponentsV2()
                 .build();
     }
 
-    public static Container buildGaugeInterestListContainer(List<EventData> events, int page, String authorId) {
+    public static Container buildGaugeInterestListContainer(List<EventData> events, int page) {
         final int itemsPerPage = 5;
         int totalPages = (int) Math.ceil((double) events.size() / itemsPerPage);
         int startIndex = page * itemsPerPage;
@@ -241,11 +246,11 @@ public class EventManager {
         //Add Text Display for current filter here
 
         for (EventData event : events) {
-            components.add(TextDisplay.of("### " + event.getName()));
+            //components.add(TextDisplay.of("### " + event.getName()));
             components.add(ActionRow.of(
-                    Button.secondary("event:gaugeInterest:" + authorId + ":" + event.getId(), "I am Interested")
+                    Button.secondary("event:gaugeInterest::" + event.getId(), event.getName() + " - " + event.getInterestedMembers().size() + " Interested")
             ));
-            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+            //components.add(Separator.createDivider(Separator.Spacing.SMALL));
         }
 
         /* Page related stuff, I don't think we need at this moment.
@@ -265,19 +270,19 @@ public class EventManager {
         return Container.of(components);
     }
 
-    public static MessageCreateData generateDetailMessage(String authorId, int index) {
+    public static MessageCreateData generateDetailMessage(String guildId, String authorId, int index) {
         return new MessageCreateBuilder()
-                .addComponents(buildDetailContainer(index, authorId))
+                .addComponents(buildDetailContainer(guildId, index, authorId))
                 .useComponentsV2()
                 .build();
     }
 
-    public static Container buildDetailContainer(int index, String authorId) {
-        EventData event = getEventById(index);
+    public static Container buildDetailContainer(String guildId, int index, String authorId) {
+        EventData event = getEventById(guildId, index);
 
         if (event == null) {
             log.error("Could not find Event # {} to show Details.", index);
-            return buildListContainer(EventManager.getAllEvents(), 0, authorId);
+            return buildListContainer(EventManager.getAllEvents(guildId), 0, authorId);
         }
 
         List<ContainerChildComponent> components = new ArrayList<>();
@@ -312,8 +317,8 @@ public class EventManager {
         return Container.of(components);
     }
 
-    public static Container generateEditContainer(int index, String authorId) {
-        EventData event = getEventById(index);
+    public static Container buildEditContainer(String guildId, int index, String authorId) {
+        EventData event = getEventById(guildId, index);
 
         List<ContainerChildComponent> components = new ArrayList<>();
 
@@ -335,7 +340,7 @@ public class EventManager {
         components.add(ActionRow.of(channelMenu.build()));
 
         components.add(TextDisplay.of("Related Role"));
-        EntitySelectMenu.Builder roleMenu = EntitySelectMenu.create("event:edit-role:" + authorId + ":" + event.getId(), EntitySelectMenu.SelectTarget.ROLE);
+        EntitySelectMenu.Builder roleMenu = EntitySelectMenu.create("event:edit-role:" + authorId + ":" + event.getId(), EntitySelectMenu.SelectTarget.ROLE).setMinValues(0);
         if (event.getRoleId() > 0)
             roleMenu.setDefaultValues(EntitySelectMenu.DefaultValue.role(event.getRoleId()));
         components.add(ActionRow.of(roleMenu.build()));
@@ -343,6 +348,7 @@ public class EventManager {
         components.add(TextDisplay.of("Event Actions"));
         components.add(ActionRow.of(
                 Button.primary("event:edit-gaugeInterest:" + authorId + ":" + event.getId(), "Gauge Interest"),
+                Button.secondary("event:edit-interestedMembers:" + authorId + ":" + event.getId(), event.getInterestedMembers().size() + " Interested").withDisabled(!event.isGaugeInterest()),
                 Button.danger("event:edit-delete:" + authorId + ":" + event.getId(), "Delete Event")
         ));
 
@@ -355,8 +361,8 @@ public class EventManager {
         return Container.of(components);
     }
 
-    public static Modal generateEditNameModal(int eventIndex) {
-        EventData event = getEventById(eventIndex);
+    public static Modal generateEditNameModal(String guildId, int eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
 
         return Modal.create("event:edit-name:" + eventIndex, "Edit Name of Event # " + event.getId())
                 .addComponents(
@@ -364,8 +370,8 @@ public class EventManager {
                 ).build();
     }
 
-    public static Modal generateEditDatesModal(int eventIndex) {
-        EventData event = getEventById(eventIndex);
+    public static Modal generateEditDatesModal(String guildId, int eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
 
         Label startDate = Label.of("Starting Date", TextInput.create("start-date", TextInputStyle.SHORT)
                 .setPlaceholder(event.getStartDate() > 0 ? longToDateString(event.getStartDate()) : "01/01/2020")
@@ -389,8 +395,8 @@ public class EventManager {
         return localDateTime.format(formatter);
     }
 
-    public static Modal generateEditAddressModal(int eventIndex) {
-        EventData event = getEventById(eventIndex);
+    public static Modal generateEditAddressModal(String guildId, int eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
 
         return Modal.create("event:edit-address:" + eventIndex, "Edit Address of Event # " + event.getId())
                 .addComponents(
@@ -400,8 +406,8 @@ public class EventManager {
                 ).build();
     }
 
-    public static Modal generateEditOmnidexModal(int eventIndex) {
-        EventData event = getEventById(eventIndex);
+    public static Modal generateEditOmnidexModal(String guildId, int eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
 
         return Modal.create("event:edit-omnidex:" + eventIndex, "Edit Omnidex Link on Event # " + event.getId())
                 .addComponents(
@@ -411,8 +417,8 @@ public class EventManager {
                 ).build();
     }
 
-    public static Modal generateEditTicketLinkModal(int eventIndex) {
-        EventData event = getEventById(eventIndex);
+    public static Modal generateEditTicketLinkModal(String guildId, int eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
 
         return Modal.create("event:edit-ticket:" + eventIndex, "Edit Ticket Link on Event # " + event.getId())
                 .addComponents(
@@ -422,8 +428,8 @@ public class EventManager {
                 ).build();
     }
 
-    public static Modal generateDeleteEventModel(int eventIndex) {
-        EventData event = getEventById(eventIndex);
+    public static Modal generateDeleteEventModel(String guildId, int eventIndex) {
+        EventData event = getEventById(guildId, eventIndex);
 
         if (event == null) {
             log.error("Could not find Event # {} to Delete.", eventIndex);
@@ -433,7 +439,7 @@ public class EventManager {
         return Modal.create("event:edit-delete:" + eventIndex, "Delete Event # " + event.getId())
                 .addComponents(
                         Label.of("Enter Event Name to Confirm Deletion", TextInput.create("name", TextInputStyle.SHORT)
-                                .setPlaceholder(event.getName())
+                                .setPlaceholder(event.getName().isBlank() ? "Unnamed Event" : event.getName())
                                 .build())
                 ).build();
     }

@@ -15,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class DataStore {
@@ -26,9 +25,11 @@ public class DataStore {
             .serializeNulls()
             .create();
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private static final Map<String, Partition<?>> partitions = new ConcurrentHashMap<>();
-
+    private static final Map<String, PartitionConfig<?>> configs = new ConcurrentHashMap<>();
+    private static final Map<String, Partition<?>> activePartitions = new ConcurrentHashMap<>();
     private static final Path DATA_DIRECTORY = Paths.get("data");
+
+    private record PartitionConfig<T>(String fileName, Type type, Supplier<T> defaultSupplier) { }
 
     private static class Partition<T> {
         final Path filePath;
@@ -50,13 +51,12 @@ public class DataStore {
      */
     public static void initialize(int saveIntervalSeconds) {
         log.info("Initializing DataStoreService...");
-        // Ensure the main data directory exists before loading anything.
         try {
             Files.createDirectories(DATA_DIRECTORY);
         } catch (IOException e) {
-            log.error("Could not create data directory!", e);
+            log.error("Could not create main data directory!", e);
         }
-        loadAll();
+        //loadAll();
         scheduleAutoSave(saveIntervalSeconds);
         Runtime.getRuntime().addShutdownHook(new Thread(DataStore::shutdown));
         log.info("DataStoreService ready.");
@@ -72,8 +72,7 @@ public class DataStore {
      * @param defaultSupplier A function that provides a new, empty object if the file doesn't exist.
      */
     public static <T> void register(String name, String fileName, Type type, Supplier<T> defaultSupplier) {
-        Path filePath = DATA_DIRECTORY.resolve(fileName);
-        partitions.put(name, new Partition<>(filePath, type, defaultSupplier));
+        configs.put(name, new PartitionConfig<>(fileName, type, defaultSupplier));
     }
 
     /**
@@ -81,11 +80,16 @@ public class DataStore {
      * This is the method your manager classes should call after modifying data.
      * @param name The name of the partition to mark (e.g., "expenses").
      */
-    public static void markDirty(String name) {
-        Partition<?> partition = partitions.get(name);
+    public static void markDirty(String guildId, String name) {
+        String key = guildId + ":" + name;
+        Partition<?> partition = activePartitions.get(key);
         if (partition != null) {
             partition.dirty = true;
         }
+    }
+
+    public static void markGlobalDirty(String name) {
+        markDirty("global", name);
     }
 
     /**
@@ -94,61 +98,65 @@ public class DataStore {
      * @return The data object.
      */
     @SuppressWarnings("unchecked")
-    public static <T> T get(String name) {
-        Partition<?> partition = partitions.get(name);
-        if (partition == null) {
-            throw new IllegalArgumentException("No partition registered with name: " + name);
-        }
+    public static <T> T get(String guildId, String name) {
+        String key = guildId + ":" + name;
+
+        Partition<?> partition = activePartitions.computeIfAbsent(key, k -> {
+            PartitionConfig<?> config = configs.get(name);
+            if (config == null){
+                throw new IllegalArgumentException("No schema registered with name: " + name);
+            }
+
+            Path filePath = DATA_DIRECTORY.resolve(guildId).resolve(config.fileName);
+            Partition<?> p = new Partition<>(filePath, config.type, config.defaultSupplier);
+
+            loadPartitionIntoMemory(p, name);
+            return p;
+        });
+
         return (T) partition.data;
     }
 
+    public static <T> T getGlobal(String name) {
+        return get("global", name);
+    }
 
-    private static void loadAll() {
-        log.info("Loading all data partitions...");
+    private static <T> void loadPartitionIntoMemory(Partition<T> partition, String partitionName) {
+        try {
+            Files.createDirectories(partition.filePath.getParent());
+            if (Files.exists(partition.filePath)) {
+                String json = Files.readString(partition.filePath);
+                if (json != null && !json.trim().isEmpty()) {
+                    partition.data = gson.fromJson(json, partition.type);
+                    log.info("Loaded partition '{}' from {}", partitionName, partition.filePath);
 
-        for (Map.Entry<String, Partition<?>> entry : partitions.entrySet()) {
-            Partition<?> partition = entry.getValue();
-            try {
-                Files.createDirectories(partition.filePath.getParent());
-                if (Files.exists(partition.filePath)) {
-                    String json = Files.readString(partition.filePath);
-                    if (json != null && !json.isEmpty()) {
-
-                        partition.data = gson.fromJson(json, partition.type);
-                        log.info("Successfully loaded partition '{}' from {}", entry.getKey(), partition.filePath);
-
-                        if (partition.data instanceof DataPartition) {
-                            log.info("Detected DataPartition for '{}'. Running post-load actions...", entry.getKey());
-                            // If it is, cast it and call the method directly.
-                            ((DataPartition<?>) partition.data).performPostLoadActions();
-                        }
+                    if (partition.data instanceof DataPartition) {
+                        ((DataPartition<?>) partition.data).performPostLoadActions();
                     }
                 }
-            } catch (IOException e) {
-                log.error("Failed to load data for partition '{}' from {}", entry.getKey(), partition.filePath, e);
             }
+        } catch (IOException e) {
+            log.error("Failed to load data for partition '{}' from {}", partitionName, partition.filePath, e);
         }
     }
 
-    private static void save(String name) {
-        Partition<?> partition = partitions.get(name);
-        if (partition == null) return;
-
+    private static void save(String key, Partition<?> partition) {
         try {
+            Files.createDirectories(partition.filePath.getParent());
             String json = gson.toJson(partition.data);
             Files.writeString(partition.filePath, json);
-            log.info("Saved partition '{}' to {}", name, partition.filePath);
+            log.debug("Saved partition '{}' to {}", key, partition.filePath);
         } catch (IOException e) {
-            log.error("Failed to save data for partition '{}' to {}", name, partition.filePath, e);
+            log.error("Failed to save data for partition '{}' to {}", key, partition.filePath, e);
         }
     }
 
     private static void scheduleAutoSave(int intervalSeconds) {
         scheduler.scheduleAtFixedRate(() -> {
-            for (Map.Entry<String, Partition<?>> entry : partitions.entrySet()) {
+            for (Map.Entry<String, Partition<?>> entry : activePartitions.entrySet()) {
                 Partition<?> partition = entry.getValue();
                 if (partition.dirty) {
-                    save(entry.getKey());
+                    save(entry.getKey(), partition);
                     partition.dirty = false; // Reset the flag after saving
                 }
             }
@@ -158,9 +166,9 @@ public class DataStore {
     private static void shutdown() {
         log.info("Shutdown hook triggered. Saving all dirty data partitions...");
         scheduler.shutdown(); // Stop the scheduler from starting new saves
-        for (Map.Entry<String, Partition<?>> entry : partitions.entrySet()) {
+        for (Map.Entry<String, Partition<?>> entry : activePartitions.entrySet()) {
             if (entry.getValue().dirty) {
-                save(entry.getKey()); // Force-save any remaining dirty data
+                save(entry.getKey(), entry.getValue()); // Force-save any remaining dirty data
             }
         }
         log.info("Data saving complete. Goodbye.");

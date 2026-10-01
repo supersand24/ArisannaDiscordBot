@@ -44,6 +44,7 @@ public class DebtData implements IData {
     }
 
     public EmbedBuilder createEmbed(JDA jda) {
+        /*
         User debtor = jda.retrieveUserById(debtorId).complete();
         User creditor = jda.retrieveUserById(creditorId).complete();
         //Event event = EventManager.getEventById(eventId);
@@ -68,6 +69,8 @@ public class DebtData implements IData {
         }
 
         return embed;
+         */
+        return null;
     }
 
 }

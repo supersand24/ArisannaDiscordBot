@@ -39,8 +39,8 @@ public class ExpenseManager {
 
     private static final int ITEMS_PER_PAGE = 5;
 
-    private static Map<Long, ExpenseData> getExpensesMap() {
-        DataPartition<ExpenseData> expenses = DataStore.get(EXPENSES_DATA_STORE_NAME);
+    private static Map<Long, ExpenseData> getExpensesMap(String guildId) {
+        DataPartition<ExpenseData> expenses = DataStore.get(guildId, EXPENSES_DATA_STORE_NAME);
         return expenses.getData();
     }
 
@@ -49,13 +49,13 @@ public class ExpenseManager {
      * @param expenseId The ID of the event to find.
      * @return The Event object, or null if not found.
      */
-    private static ExpenseData getExpenseById(long expenseId) {
-        DataPartition<ExpenseData> eventPartition = DataStore.get(EXPENSES_DATA_STORE_NAME);
+    private static ExpenseData getExpenseById(String guildId, long expenseId) {
+        DataPartition<ExpenseData> eventPartition = DataStore.get(guildId, EXPENSES_DATA_STORE_NAME);
         return eventPartition.getData().get(expenseId);
     }
 
-    private static Map<Long, DebtData> getDebtMap() {
-        DataPartition<DebtData> debts = DataStore.get(DEBTS_DATA_STORE_NAME);
+    private static Map<Long, DebtData> getDebtMap(String guildId) {
+        DataPartition<DebtData> debts = DataStore.get(guildId, DEBTS_DATA_STORE_NAME);
         return debts.getData();
     }
 
@@ -64,107 +64,107 @@ public class ExpenseManager {
      * @param debtId The ID of the event to find.
      * @return The Debt object, or null if not found.
      */
-    private static DebtData getDebtById(long debtId) {
-        DataPartition<DebtData> debtPartition = DataStore.get(DEBTS_DATA_STORE_NAME);
+    private static DebtData getDebtById(String guildId, long debtId) {
+        DataPartition<DebtData> debtPartition = DataStore.get(guildId, DEBTS_DATA_STORE_NAME);
         return debtPartition.getData().get(debtId);
     }
 
-    public static long createExpense(String name, double amount, String payerId, EventData event) {
-        DataPartition<ExpenseData> expensesHashMap = DataStore.get(EXPENSES_DATA_STORE_NAME);
+    public static long createExpense(String guildId, String name, double amount, String payerId, EventData event) {
+        DataPartition<ExpenseData> expensesHashMap = DataStore.get(guildId, EXPENSES_DATA_STORE_NAME);
         long newId = expensesHashMap.getAndIncrementId();
         Map<Long, ExpenseData> expenses = expensesHashMap.getData();
         ExpenseData expense = new ExpenseData(newId, event.getId(), name, amount, payerId);
         expenses.put(newId, expense);
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
         return expense.getId();
     }
 
-    public static void deleteExpense(long key) {
-        getExpensesMap().remove(key);
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+    public static void deleteExpense(String guildId, long key) {
+        getExpensesMap(guildId).remove(key);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static boolean exists(long key) {
-        return getExpensesMap().containsKey(key);
+    public static boolean exists(String guildId, long key) {
+        return getExpensesMap(guildId).containsKey(key);
     }
 
-    public static void linkExpenseToEvent(long index, long newEventId) {
-        ExpenseData expense = getExpenseById(index);
+    public static void linkExpenseToEvent(String guildId, long index, long newEventId) {
+        ExpenseData expense = getExpenseById(guildId, index);
         expense.setEventId(newEventId);
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static String getExpenseName(long index) {
-        ExpenseData expense = getExpenseById(index);
+    public static String getExpenseName(String guildId, long index) {
+        ExpenseData expense = getExpenseById(guildId, index);
         return expense == null ? "???" : expense.getName();
     }
 
-    public static void setExpenseName(long index, String newName) {
-        ExpenseData expense = getExpenseById(index);
+    public static void setExpenseName(String guildId, long index, String newName) {
+        ExpenseData expense = getExpenseById(guildId, index);
         expense.setName(newName);
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static void setExpenseAmount(long index, double newAmount) {
-        ExpenseData expense = getExpenseById(index);
+    public static void setExpenseAmount(String guildId, long index, double newAmount) {
+        ExpenseData expense = getExpenseById(guildId, index);
         expense.setAmount(newAmount);
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static void setExpenseLinkedEvent(long index, EventData newEvent) {
-        ExpenseData expense = getExpenseById(index);
+    public static void setExpenseLinkedEvent(String guildId, long index, EventData newEvent) {
+        ExpenseData expense = getExpenseById(guildId, index);
         expense.setEventId(newEvent.getId());
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static void setExpensePayer(long index, String newPayerId) {
-        ExpenseData expense = getExpenseById(index);
+    public static void setExpensePayer(String guildId, long index, String newPayerId) {
+        ExpenseData expense = getExpenseById(guildId, index);
         expense.setPayerId(newPayerId);
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static void addBenefactors(long key, List<User> benefactorIds) {
-        ExpenseData expense = getExpensesMap().get(key);
+    public static void addBenefactors(String guildId, long key, List<User> benefactorIds) {
+        ExpenseData expense = getExpensesMap(guildId).get(key);
         for (User user : benefactorIds)
             expense.addBeneficiaryId(user.getId());
-        DataStore.markDirty(EXPENSES_DATA_STORE_NAME);
+        DataStore.markDirty(guildId, EXPENSES_DATA_STORE_NAME);
     }
 
-    public static List<ExpenseData> getExpensesSorted() {
-        return getExpensesMap().values().stream()
+    public static List<ExpenseData> getExpensesSorted(String guildId) {
+        return getExpensesMap(guildId).values().stream()
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
 
-    public static List<ExpenseData> getExpensesForUserSorted(String userId) {
-        return getExpensesMap().values().stream()
+    public static List<ExpenseData> getExpensesForUserSorted(String guildId, String userId) {
+        return getExpensesMap(guildId).values().stream()
                 .filter(exp -> exp.getPayerId().equals(userId) || exp.getBeneficiaryIds().contains(userId))
                 .sorted(Comparator.comparing(ExpenseData::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
 
-    public static void addPaymentInfo(String userId, String appName, String details) {
-        Map<String, List<PaymentInfo>> paymentMethods = DataStore.get("paymentMethods");
+    public static void addPaymentInfo(String guildId, String userId, String appName, String details) {
+        Map<String, List<PaymentInfo>> paymentMethods = DataStore.get(guildId, "paymentMethods");
         paymentMethods.computeIfAbsent(userId, k -> new ArrayList<>())
                 .add(new PaymentInfo(appName, details));
-        DataStore.markDirty("paymentMethods");
+        DataStore.markDirty(guildId, "paymentMethods");
     }
 
-    public static boolean removePaymentInfo(String userId, String appName) {
-        List<PaymentInfo> infos = getPaymentInfoForUser(userId);
+    public static boolean removePaymentInfo(String guildId, String userId, String appName) {
+        List<PaymentInfo> infos = getPaymentInfoForUser(guildId, userId);
         if (infos == null) return false;
         boolean removed = infos.removeIf(info -> info.getAppName().equalsIgnoreCase(appName));
-        if (removed) DataStore.markDirty("paymentMethods");
+        if (removed) DataStore.markDirty(guildId, "paymentMethods");
         return removed;
     }
 
-    public static List<PaymentInfo> getPaymentInfoForUser(String userId) {
-        Map<String, List<PaymentInfo>> paymentMethods = DataStore.get("paymentMethods");
+    public static List<PaymentInfo> getPaymentInfoForUser(String guildId, String userId) {
+        Map<String, List<PaymentInfo>> paymentMethods = DataStore.get(guildId, "paymentMethods");
         return paymentMethods.getOrDefault(userId, Collections.emptyList());
     }
 
-    public static SettlementResult calculateSettlement() {
-        List<ExpenseData> unsettledExpenses = getExpensesMap().values().stream()
+    public static SettlementResult calculateSettlement(String guildId) {
+        List<ExpenseData> unsettledExpenses = getExpensesMap(guildId).values().stream()
                 .filter(expense -> !expense.isSettled())
                 .toList();
 
@@ -199,7 +199,7 @@ public class ExpenseManager {
 
         if (debtors.isEmpty() || creditors.isEmpty()) {
             unsettledExpenses.forEach(ExpenseData::setSettled);
-            DataStore.markDirty("expenses");
+            DataStore.markDirty(guildId, "expenses");
             return new SettlementResult(Collections.emptyList(), 0);
         }
 
@@ -212,7 +212,7 @@ public class ExpenseManager {
 
             // Create a new persistent Debt object
 
-            DataPartition<DebtData> debtsHashMap = DataStore.get("debts");
+            DataPartition<DebtData> debtsHashMap = DataStore.get(guildId, "debts");
             long newDebtId = debtsHashMap.getAndIncrementId();
             DebtData newDebt = new DebtData(newDebtId, 0, debtorEntry.getKey(), creditorEntry.getKey(), transferAmount);
 
@@ -238,19 +238,19 @@ public class ExpenseManager {
             expense.setSettled();
 
         // Step 6: Persist all changes and return.
-        DataStore.markDirty("debts");
+        DataStore.markDirty(guildId, "debts");
         return new SettlementResult(newDebts, processedCount);
     }
 
-    public static List<DebtData> getOutstandingDebts() {
-        return getDebtMap().values().stream()
+    public static List<DebtData> getOutstandingDebts(String guildId) {
+        return getDebtMap(guildId).values().stream()
                 .filter(debt -> !debt.isPaid())
                 .sorted(Comparator.comparing(DebtData::getDebtId))
                 .collect(Collectors.toList());
     }
 
-    public static String markDebtAsPaid(long debtId, String actioningUserId) {
-        DebtData debt = getDebtMap().get(debtId);
+    public static String markDebtAsPaid(String guildId, long debtId, String actioningUserId) {
+        DebtData debt = getDebtMap(guildId).get(debtId);
         if (debt == null) return "This debt doesn't exist in my library!";
         if (debt.isPaid()) return "You already settled this debt.";
 
@@ -259,14 +259,14 @@ public class ExpenseManager {
         }
 
         debt.markAsPaid();
-        DataStore.markDirty("debts");
+        DataStore.markDirty(guildId, "debts");
 
         return String.format("Success! Debt #%d (%s owed by <@%s>) has been marked as paid.",
                 debtId, CurrencyUtils.formatAsUSD(debt.getAmount()), debt.getDebtorId());
     }
 
-    public static MessageCreateData buildSettlementView() {
-        SettlementResult result = calculateSettlement();
+    public static MessageCreateData buildSettlementView(String guildId) {
+        SettlementResult result = calculateSettlement(guildId);
         EmbedBuilder embed = new EmbedBuilder();
         embed.setColor(Color.GREEN);
         embed.setTitle("Settlement Plan");
@@ -306,10 +306,10 @@ public class ExpenseManager {
                 .build();
     }
 
-    public static MessageCreateData buildExpenseListPage(int page, String authorId, String targetId) {
+    public static MessageCreateData buildExpenseListPage(String guildId, int page, String authorId, String targetId) {
         List<ExpenseData> expenses = targetId.equals("all")
-                ? getExpensesSorted()
-                : getExpensesForUserSorted(targetId);
+                ? getExpensesSorted(guildId)
+                : getExpensesForUserSorted(guildId, targetId);
 
         if (expenses.isEmpty())
             return new MessageCreateBuilder().setContent("No expenses found matching criteria.").build();
@@ -320,8 +320,8 @@ public class ExpenseManager {
                 .build();
     }
 
-    public static MessageCreateData buildPaymentMethodView(User targetUser) {
-        List<PaymentInfo> paymentInfos = getPaymentInfoForUser(targetUser.getId());
+    public static MessageCreateData buildPaymentMethodView(String guildId, User targetUser) {
+        List<PaymentInfo> paymentInfos = getPaymentInfoForUser(guildId, targetUser.getId());
         EmbedBuilder embed = new EmbedBuilder();
         embed.setAuthor(targetUser.getName() + " Payment Methods", null, targetUser.getEffectiveAvatarUrl());
         embed.setColor(Color.MAGENTA);
@@ -339,8 +339,8 @@ public class ExpenseManager {
                 .build();
     }
 
-    public static MessageCreateData generateExpenseListMessage(String authorId, int page) {
-        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted();
+    public static MessageCreateData generateExpenseListMessage(String guildId, String authorId, int page) {
+        List<ExpenseData> expenses = ExpenseManager.getExpensesSorted(guildId);
         if (expenses.isEmpty()) {
             return new MessageCreateBuilder().setContent("No expenses found matching criteria.").build();
         }
@@ -350,30 +350,30 @@ public class ExpenseManager {
                 .build();
     }
 
-    public static MessageCreateData generateExpenseDetailMessage(String authorId, int index) {
+    public static MessageCreateData generateExpenseDetailMessage(String guildId, String authorId, int index) {
         return new MessageCreateBuilder()
-                .addComponents(buildExpenseDetailContainer(index, authorId))
+                .addComponents(buildExpenseDetailContainer(guildId, index, authorId))
                 .useComponentsV2()
                 .build();
     }
 
-    public static MessageCreateData generateExpenseEditMessage(String authorId, int index) {
+    public static MessageCreateData generateExpenseEditMessage(String guildId, String authorId, int index) {
         return new MessageCreateBuilder()
-                .addComponents(buildExpenseEditContainer(index, authorId))
+                .addComponents(buildExpenseEditContainer(guildId, index, authorId))
                 .useComponentsV2()
                 .build();
     }
 
-    public static MessageCreateData generateDebtListMessage(String authorId, int page) {
+    public static MessageCreateData generateDebtListMessage(String guildId, String authorId, int page) {
         return new MessageCreateBuilder()
-                .addComponents(buildDebtListContainer(page, authorId))
+                .addComponents(buildDebtListContainer(guildId, page, authorId))
                 .useComponentsV2()
                 .build();
     }
 
-    public static MessageCreateData generateDebtDetailMessage(String authorId, int index, JDA jda) {
+    public static MessageCreateData generateDebtDetailMessage(String guildId, String authorId, int index, JDA jda) {
         return new MessageCreateBuilder()
-                .addComponents(buildDebtDetailContainer(index, authorId, jda))
+                .addComponents(buildDebtDetailContainer(guildId, index, authorId, jda))
                 .useComponentsV2()
                 .build();
     }
@@ -419,12 +419,12 @@ public class ExpenseManager {
         return ActionRow.of(prev, next);
     }
 
-    public static Container buildExpenseDetailContainer(int index, String authorId) {
-        ExpenseData expense = getExpenseById(index);
+    public static Container buildExpenseDetailContainer(String guildId, int index, String authorId) {
+        ExpenseData expense = getExpenseById(guildId, index);
 
         if (expense == null) {
             log.error("Could not find Expense # {} to show Details.", index);
-            return buildExpenseListContainer(ExpenseManager.getExpensesSorted(), 0, authorId);
+            return buildExpenseListContainer(ExpenseManager.getExpensesSorted(guildId), 0, authorId);
         }
 
         List<ContainerChildComponent> components = new ArrayList<>();
@@ -451,12 +451,12 @@ public class ExpenseManager {
         return Container.of(components);
     }
 
-    public static Container buildExpenseEditContainer(int index, String authorId) {
-        ExpenseData expense = getExpenseById(index);
+    public static Container buildExpenseEditContainer(String guildId, int index, String authorId) {
+        ExpenseData expense = getExpenseById(guildId, index);
 
         if (expense == null) {
             log.error("Could not find Expense # {} to show Details.", index);
-            return buildExpenseListContainer(ExpenseManager.getExpensesSorted(), 0, authorId);
+            return buildExpenseListContainer(ExpenseManager.getExpensesSorted(guildId), 0, authorId);
         }
 
         List<ContainerChildComponent> components = new ArrayList<>();
@@ -502,8 +502,8 @@ public class ExpenseManager {
         return Container.of(components);
     }
 
-    private static Container buildDebtListContainer(int page, String authorId) {
-        List<DebtData> outstandingDebts = getOutstandingDebts();
+    private static Container buildDebtListContainer(String guildId, int page, String authorId) {
+        List<DebtData> outstandingDebts = getOutstandingDebts(guildId);
         int totalPages = (int) Math.ceil((double) outstandingDebts.size() / ITEMS_PER_PAGE);
         int startIndex = page * ITEMS_PER_PAGE;
 
@@ -531,8 +531,8 @@ public class ExpenseManager {
         return Container.of(components);
     }
 
-    private static Container buildDebtDetailContainer(int index, String authorId, JDA jda) {
-        DebtData debt = getDebtById(index);
+    private static Container buildDebtDetailContainer(String guildId, int index, String authorId, JDA jda) {
+        DebtData debt = getDebtById(guildId, index);
 
         User debtor = jda.retrieveUserById(debt.getDebtorId()).complete();
         User creditor = jda.retrieveUserById(debt.getCreditorId()).complete();
@@ -543,7 +543,7 @@ public class ExpenseManager {
         components.add(TextDisplay.of("## Debt Details: " + debtor.getName() + " → " + creditor.getName()));
         components.add(TextDisplay.of("Amount Owed\n" + CurrencyUtils.formatAsUSD(debt.getAmount())));
 
-        List<PaymentInfo> paymentInfos = ExpenseManager.getPaymentInfoForUser(debt.getCreditorId());
+        List<PaymentInfo> paymentInfos = ExpenseManager.getPaymentInfoForUser(guildId, debt.getCreditorId());
         if (paymentInfos.isEmpty())
             components.add(TextDisplay.of("This user has not added any payment information."));
         else {
@@ -556,8 +556,8 @@ public class ExpenseManager {
         return Container.of(components);
     }
 
-    public static Container buildPaymentInfoDetailContainer() {
-        SettlementResult result = calculateSettlement();
+    public static Container buildPaymentInfoDetailContainer(String guildId) {
+        SettlementResult result = calculateSettlement(guildId);
 
         List<ContainerChildComponent> components = new ArrayList<>();
 
@@ -597,8 +597,8 @@ public class ExpenseManager {
         return Container.of(components);
     }
 
-    public static Modal generateEditExpenseNameModal(int index) {
-        ExpenseData expense = getExpenseById(index);
+    public static Modal generateEditExpenseNameModal(String guildId, int index) {
+        ExpenseData expense = getExpenseById(guildId, index);
 
         return Modal.create("expense-edit-name:" + index, "Edit Name of Expense # " + expense.getId())
                 .addComponents(
@@ -606,8 +606,8 @@ public class ExpenseManager {
                 ).build();
     }
 
-    public static Modal generateEditExpenseAmountModal(int index) {
-        ExpenseData expense = getExpenseById(index);
+    public static Modal generateEditExpenseAmountModal(String guildId, int index) {
+        ExpenseData expense = getExpenseById(guildId, index);
 
         return Modal.create("expense-edit-amount:" + index, "Edit Amount of Expense # " + expense.getId())
                 .addComponents(
@@ -617,10 +617,10 @@ public class ExpenseManager {
                 ).build();
     }
 
-    public static Modal generateEditExpenseEventLinkedModal(int index) {
-        ExpenseData expense = getExpenseById(index);
+    public static Modal generateEditExpenseEventLinkedModal(String guildId, int index) {
+        ExpenseData expense = getExpenseById(guildId, index);
 
-        String placeholder = expense.getEventId() == 0 ? "No Event" : EventManager.getEventName(expense.getEventId());
+        String placeholder = expense.getEventId() == 0 ? "No Event" : EventManager.getEventName(guildId, expense.getEventId());
 
         return Modal.create("expense-edit-event:" + index, "Set Linked Event of Expense # " + expense.getId())
                 .addComponents(
@@ -628,8 +628,8 @@ public class ExpenseManager {
                 ).build();
     }
 
-    public static Modal generateDeleteExpenseModel(int index) {
-        ExpenseData expense = getExpenseById(index);
+    public static Modal generateDeleteExpenseModel(String guildId, int index) {
+        ExpenseData expense = getExpenseById(guildId, index);
 
         if (expense == null) {
             log.error("Could not find Expense # {} to Delete.", index);

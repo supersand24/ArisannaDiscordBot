@@ -7,7 +7,7 @@ public class DataPartition<T extends IData> {
 
     private long nextId = 1;
 
-    private Map<Long, T> data = new ConcurrentHashMap<>();
+    private final Map<Long, T> data = new ConcurrentHashMap<>();
 
     /**
      * Returns the map containing the data.

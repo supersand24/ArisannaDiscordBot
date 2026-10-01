@@ -1,6 +1,8 @@
 package dev.supersand24.voice;
 
 import dev.supersand24.ArisannaBot;
+import dev.supersand24.DataStore;
+import dev.supersand24.GuildSettings;
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -13,12 +15,19 @@ import net.dv8tion.jda.api.entities.IPermissionHolder;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.PermissionOverride;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.Channel;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.managers.channel.concrete.VoiceChannelManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,11 +45,52 @@ public class VoiceCommand implements ICommand {
     public String getName() { return "vc"; }
 
     @Override
-    public CommandData getCommandData() { return null; }
+    public CommandData getCommandData() {
+        return Commands.slash(getName(), "Manage Auto-Voice Channel settings.")
+                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_SERVER))
+                .addSubcommands(
+                        new SubcommandData("set-generator", "Sets the channel used to generate new voice channels.")
+                                .addOptions(
+                                        new OptionData(OptionType.CHANNEL, "channel", "The Voice or Stage channel to use.", true)
+                                                .setChannelTypes(ChannelType.VOICE, ChannelType.STAGE)
+                                ),
+                        new SubcommandData("disable-generator", "Disables the auto-voice generation feature.")
+                );
+    }
 
-    @Override
     public void handleSlashCommand(SlashCommandInteractionEvent e) {
+        if (e.getGuild() == null) return;
+        String guildId = e.getGuild().getId();
 
+        GuildSettings settings = DataStore.get(guildId, "settings");
+        if (!settings.enabledCommands.contains("vc")) {
+            e.reply("❌ The Voice Channel module is currently disabled in this server.").setEphemeral(true).queue();
+            return;
+        }
+
+        boolean isOwner = e.getMember().isOwner();
+        boolean isAdmin = e.getMember().hasPermission(Permission.MANAGE_SERVER);
+
+        if (!isOwner && !isAdmin) {
+            e.reply("❌ Only the Server Owner or Server Admins can use this command.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (e.getSubcommandName().equals("set-generator")) {
+            Channel channel = e.getOption("channel").getAsChannel();
+
+            settings.autoVoiceChannelId = channel.getIdLong();
+            DataStore.markDirty(guildId, "settings");
+
+            e.reply("✅ Auto-VC generator channel set to " + channel.getAsMention()).setEphemeral(true).queue();
+
+        } else if (e.getSubcommandName().equals("disable-generator")) {
+
+            settings.autoVoiceChannelId = null;
+            DataStore.markDirty(guildId, "settings");
+
+            e.reply("✅ Auto-VC generation has been disabled.").queue();
+        }
     }
 
     @Override
@@ -175,11 +225,6 @@ public class VoiceCommand implements ICommand {
     }
 
     @Override
-    public void handleStringSelectInteraction(StringSelectInteractionEvent e) {
-
-    }
-
-    @Override
     public void handleEntitySelectInteraction(EntitySelectInteractionEvent e) {
 
         String[] parts = e.getComponentId().split(":");
@@ -237,8 +282,4 @@ public class VoiceCommand implements ICommand {
 
     }
 
-    @Override
-    public void handleModalInteraction(ModalInteractionEvent e) {
-
-    }
 }
