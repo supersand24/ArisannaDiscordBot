@@ -1,4 +1,4 @@
-package dev.supersand24.events;
+package dev.supersand24.economy.events;
 
 import dev.supersand24.ArisannaBot;
 import dev.supersand24.DataPartition;

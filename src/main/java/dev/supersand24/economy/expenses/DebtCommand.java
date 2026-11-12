@@ -1,4 +1,4 @@
-package dev.supersand24.expenses;
+package dev.supersand24.economy.expenses;
 
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -14,8 +14,12 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 public class DebtCommand implements ICommand {
+
     @Override
     public String getName() { return "debt"; }
+
+    @Override
+    public String getModule() { return "economy"; }
 
     @Override
     public CommandData getCommandData() {

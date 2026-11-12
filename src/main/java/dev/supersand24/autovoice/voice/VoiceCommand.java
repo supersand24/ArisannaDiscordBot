@@ -1,4 +1,4 @@
-package dev.supersand24.voice;
+package dev.supersand24.autovoice.voice;
 
 import dev.supersand24.ArisannaBot;
 import dev.supersand24.DataStore;
@@ -17,11 +17,9 @@ import net.dv8tion.jda.api.entities.PermissionOverride;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
-import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
@@ -35,7 +33,7 @@ import org.slf4j.LoggerFactory;
 import java.util.EnumSet;
 import java.util.List;
 
-import static dev.supersand24.voice.VoiceManager.*;
+import static dev.supersand24.autovoice.voice.VoiceManager.*;
 
 public class VoiceCommand implements ICommand {
 
@@ -43,6 +41,9 @@ public class VoiceCommand implements ICommand {
 
     @Override
     public String getName() { return "vc"; }
+
+    @Override
+    public String getModule() { return "auto-vc"; }
 
     @Override
     public CommandData getCommandData() {
@@ -63,10 +64,6 @@ public class VoiceCommand implements ICommand {
         String guildId = e.getGuild().getId();
 
         GuildSettings settings = DataStore.get(guildId, "settings");
-        if (!settings.enabledCommands.contains("vc")) {
-            e.reply("❌ The Voice Channel module is currently disabled in this server.").setEphemeral(true).queue();
-            return;
-        }
 
         boolean isOwner = e.getMember().isOwner();
         boolean isAdmin = e.getMember().hasPermission(Permission.MANAGE_SERVER);

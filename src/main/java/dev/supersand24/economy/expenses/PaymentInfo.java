@@ -1,4 +1,4 @@
-package dev.supersand24.expenses;
+package dev.supersand24.economy.expenses;
 
 public class PaymentInfo {
 

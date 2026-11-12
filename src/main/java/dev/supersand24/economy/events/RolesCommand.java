@@ -1,4 +1,4 @@
-package dev.supersand24.events;
+package dev.supersand24.economy.events;
 
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -27,6 +27,9 @@ public class RolesCommand implements ICommand {
 
     @Override
     public String getName() { return "roles"; }
+
+    @Override
+    public String getModule() { return "economy"; }
 
     @Override
     public CommandData getCommandData() {

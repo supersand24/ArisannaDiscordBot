@@ -1,4 +1,4 @@
-package dev.supersand24.voice;
+package dev.supersand24.autovoice.voice;
 
 import dev.supersand24.DataStore;
 import dev.supersand24.GuildSettings;

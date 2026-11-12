@@ -1,4 +1,4 @@
-package dev.supersand24.cardStore;
+package dev.supersand24.economy.cardStore;
 
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.Permission;
@@ -24,6 +24,9 @@ public class CardStoreCommand implements ICommand {
 
     @Override
     public String getName() { return "card-store"; }
+
+    @Override
+    public String getModule() { return "economy"; }
 
     @Override
     public CommandData getCommandData() {

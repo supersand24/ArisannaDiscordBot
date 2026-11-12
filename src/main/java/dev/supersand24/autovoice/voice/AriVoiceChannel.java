@@ -1,4 +1,4 @@
-package dev.supersand24.voice;
+package dev.supersand24.autovoice.voice;
 
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;

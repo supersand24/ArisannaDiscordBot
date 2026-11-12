@@ -1,19 +1,15 @@
-package dev.supersand24.expenses;
+package dev.supersand24.economy.expenses;
 
-import dev.supersand24.CurrencyUtils;
+import dev.supersand24.economy.CurrencyUtils;
 import dev.supersand24.ICommand;
-import dev.supersand24.events.EventManager;
+import dev.supersand24.economy.events.EventManager;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
@@ -27,6 +23,9 @@ public class PaymentCommand implements ICommand {
 
     @Override
     public String getName() { return "payment"; }
+
+    @Override
+    public String getModule() { return "economy"; }
 
     @Override
     public CommandData getCommandData() {

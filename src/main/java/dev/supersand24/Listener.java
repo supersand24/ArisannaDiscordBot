@@ -4,16 +4,17 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 
-import dev.supersand24.cardStore.CardStoreCommand;
+import dev.supersand24.economy.cardStore.CardStoreCommand;
 import dev.supersand24.counters.CounterCommand;
 import dev.supersand24.counters.CounterManager;
-import dev.supersand24.events.EventCommand;
-import dev.supersand24.events.RolesCommand;
-import dev.supersand24.expenses.DebtCommand;
-import dev.supersand24.expenses.ExpenseCommand;
-import dev.supersand24.expenses.PaymentCommand;
-import dev.supersand24.voice.AriVoiceChannel;
-import dev.supersand24.voice.VoiceCommand;
+import dev.supersand24.economy.events.EventCommand;
+import dev.supersand24.economy.events.RolesCommand;
+import dev.supersand24.economy.expenses.DebtCommand;
+import dev.supersand24.economy.expenses.ExpenseCommand;
+import dev.supersand24.economy.expenses.PaymentCommand;
+import dev.supersand24.logging.ServerLogger;
+import dev.supersand24.autovoice.voice.AriVoiceChannel;
+import dev.supersand24.autovoice.voice.VoiceCommand;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
@@ -22,6 +23,8 @@ import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -39,7 +42,7 @@ import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.Command;
 
-import static dev.supersand24.voice.VoiceManager.*;
+import static dev.supersand24.autovoice.voice.VoiceManager.*;
 
 public class Listener extends ListenerAdapter {
 
@@ -115,20 +118,21 @@ public class Listener extends ListenerAdapter {
     }
 
     public void updateGuildCommands(Guild guild) {
-        String guildId = guild.getId();
+        GuildSettings settings = DataStore.get(guild.getId(), "settings");
+        List<CommandData> activeCommands = new ArrayList<>();
 
-        GuildSettings settings  = DataStore.get(guildId, "settings");
+        for (IModule module : ModuleManager.MODULES) {
+            if (settings.enabledModules.contains(module.getName())) {
+                for (ICommand cmd : module.getCommands()) {
+                    if (cmd.getCommandData() != null) {
+                        activeCommands.add(cmd.getCommandData());
+                    }
+                }
+            }
+        }
 
-        DataStore.markDirty(guildId, "settings");
-
-        List<CommandData> allowedCommands = commands.values().stream()
-                .filter(cmd -> settings.enabledCommands.contains(cmd.getName()))
-                .map(ICommand::getCommandData)
-                .filter(Objects::nonNull)
-                .toList();
-
-        guild.updateCommands().addCommands(allowedCommands).queue(
-                success -> log.info("Successfully loaded {} commands for server: {}", allowedCommands.size(), guild.getName()),
+        guild.updateCommands().addCommands(activeCommands).queue(
+                success -> log.info("Successfully loaded {} commands for server: {}", activeCommands.size(), guild.getName()),
                 error -> log.error("Failed to load commands for server: {}", guild.getName(), error)
         );
     }
@@ -150,16 +154,26 @@ public class Listener extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent e) {
+        if (e.getGuild() == null) return;
+
         log.info("{} slash command received.", e.getName());
 
-        ICommand command = commands.get(e.getName());
-        if (command != null)
-            command.handleSlashCommand(e);
-        else
-        {
+        ICommand command = ModuleManager.getCommand(e.getName());
+        if (command == null) {
             log.error("Unknown Command Received! " + e.getName());
             e.reply("Unknown Command!").setEphemeral(true).queue();
+            return;
         }
+
+        IModule module = ModuleManager.getModuleForCommand(e.getName());
+        GuildSettings settings = DataStore.get(e.getGuild().getId(), "settings");
+
+        if (!settings.enabledModules.contains(module.getName())) {
+            e.reply("❌ The **" + module.getName() + "** module is currently disabled.").setEphemeral(true).queue();
+            return;
+        }
+
+        command.handleSlashCommand(e);
     }
 
     @Override
@@ -244,7 +258,7 @@ public class Listener extends ListenerAdapter {
 
         GuildSettings settings = DataStore.get(guildId, "settings");
 
-        if (!settings.enabledCommands.contains("vc")) {
+        if (!settings.enabledModules.contains("auto-vc")) {
             return;
         }
 
@@ -298,6 +312,33 @@ public class Listener extends ListenerAdapter {
     }
 
     @Override
+    public void onGuildMemberJoin(GuildMemberJoinEvent e) {
+        GuildSettings settings = DataStore.get(e.getGuild().getId(), "settings");
+        if (!settings.enabledModules.contains("logs")) return; // Module check
+
+        ServerLogger.logEvent(
+                e.getGuild(),
+                "Member Joined",
+                e.getMember().getAsMention() + " (`" + e.getUser().getName() + "`) has joined the server.\n" +
+                        "Account created: <t:" + e.getUser().getTimeCreated().toEpochSecond() + ":R>",
+                java.awt.Color.GREEN
+        );
+    }
+
+    @Override
+    public void onGuildMemberRemove(GuildMemberRemoveEvent e) {
+        GuildSettings settings = DataStore.get(e.getGuild().getId(), "settings");
+        if (!settings.enabledModules.contains("logs")) return; // Module check
+
+        ServerLogger.logEvent(
+                e.getGuild(),
+                "Member Left",
+                "**" + e.getUser().getName() + "** has left the server.",
+                java.awt.Color.RED
+        );
+    }
+
+    @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent e) {
         if (e.isFromGuild()) return;
         if (e.getAuthor().isBot()) return;
@@ -327,7 +368,7 @@ public class Listener extends ListenerAdapter {
                 }
 
                 GuildSettings settings = DataStore.get(guildId, "settings");
-                String enabled = settings.enabledCommands.isEmpty() ? "None" : String.join(", ", settings.enabledCommands);
+                String enabled = settings.enabledModules.isEmpty() ? "None" : String.join(", ", settings.enabledModules);
                 e.getChannel().sendMessage("📜 **Enabled Modules in " + guild.getName() + ":**\n`" + enabled + "`").queue();
                 return;
             }
@@ -352,8 +393,8 @@ public class Listener extends ListenerAdapter {
                 GuildSettings settings = DataStore.get(guildId, "settings");
 
                 if (action.equals("add")) {
-                    if (!settings.enabledCommands.contains(commandName)) {
-                        settings.enabledCommands.add(commandName);
+                    if (!settings.enabledModules.contains(commandName)) {
+                        settings.enabledModules.add(commandName);
                         DataStore.markDirty(guildId, "settings");
                         updateGuildCommands(guild);
                         e.getChannel().sendMessage("✅ Added `" + commandName + "` to **" + guild.getName() + "**").queue();
@@ -361,8 +402,8 @@ public class Listener extends ListenerAdapter {
                         e.getChannel().sendMessage("⚠️ `" + commandName + "` is already enabled there.").queue();
                     }
                 } else if (action.equals("remove")) {
-                    if (settings.enabledCommands.contains(commandName)) {
-                        settings.enabledCommands.remove(commandName);
+                    if (settings.enabledModules.contains(commandName)) {
+                        settings.enabledModules.remove(commandName);
                         DataStore.markDirty(guildId, "settings");
                         updateGuildCommands(guild);
                         e.getChannel().sendMessage("✅ Removed `" + commandName + "` from **" + guild.getName() + "**").queue();

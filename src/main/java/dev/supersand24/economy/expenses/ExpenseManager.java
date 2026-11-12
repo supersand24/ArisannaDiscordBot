@@ -1,8 +1,9 @@
-package dev.supersand24.expenses;
+package dev.supersand24.economy.expenses;
 
 import dev.supersand24.*;
-import dev.supersand24.events.EventData;
-import dev.supersand24.events.EventManager;
+import dev.supersand24.economy.CurrencyUtils;
+import dev.supersand24.economy.events.EventData;
+import dev.supersand24.economy.events.EventManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;

@@ -1,4 +1,4 @@
-package dev.supersand24.events;
+package dev.supersand24.economy.events;
 
 import dev.supersand24.ArisannaBot;
 import dev.supersand24.DataStore;
@@ -40,6 +40,9 @@ public class EventCommand implements ICommand {
 
     @Override
     public String getName() { return "event"; }
+
+    @Override
+    public String getModule() { return "economy"; }
 
     @Override
     public CommandData getCommandData() {

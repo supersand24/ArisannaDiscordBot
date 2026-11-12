@@ -1,4 +1,4 @@
-package dev.supersand24.cardStore;
+package dev.supersand24.economy.cardStore;
 
 import dev.supersand24.IData;
 

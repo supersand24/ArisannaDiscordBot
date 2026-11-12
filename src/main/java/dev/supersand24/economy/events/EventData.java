@@ -1,7 +1,7 @@
-package dev.supersand24.events;
+package dev.supersand24.economy.events;
 
 import dev.supersand24.IData;
-import dev.supersand24.groups.GroupData;
+import dev.supersand24.economy.groups.GroupData;
 
 import java.util.ArrayList;
 import java.util.List;

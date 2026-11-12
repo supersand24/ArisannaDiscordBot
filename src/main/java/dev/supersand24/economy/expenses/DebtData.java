@@ -1,13 +1,8 @@
-package dev.supersand24.expenses;
+package dev.supersand24.economy.expenses;
 
-import dev.supersand24.CurrencyUtils;
 import dev.supersand24.IData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.User;
-
-import java.awt.*;
-import java.util.List;
 
 public class DebtData implements IData {
 

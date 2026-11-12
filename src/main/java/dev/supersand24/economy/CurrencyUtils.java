@@ -1,4 +1,4 @@
-package dev.supersand24;
+package dev.supersand24.economy;
 
 import java.text.NumberFormat;
 import java.util.Locale;

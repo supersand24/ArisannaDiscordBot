@@ -8,10 +8,12 @@ import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionE
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 
 public interface ICommand {
-
     String getName();
-
     CommandData getCommandData();
+
+    default String getModule() {
+        return getName();
+    }
 
     default void handleSlashCommand(SlashCommandInteractionEvent e) {}
 

@@ -1,9 +1,9 @@
-package dev.supersand24.expenses;
+package dev.supersand24.economy.expenses;
 
-import dev.supersand24.CurrencyUtils;
+import dev.supersand24.economy.CurrencyUtils;
 import dev.supersand24.ICommand;
-import dev.supersand24.events.EventData;
-import dev.supersand24.events.EventManager;
+import dev.supersand24.economy.events.EventData;
+import dev.supersand24.economy.events.EventManager;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
@@ -35,6 +35,9 @@ public class ExpenseCommand implements ICommand {
 
     @Override
     public String getName() { return "expense"; }
+
+    @Override
+    public String getModule() { return "economy"; }
 
     @Override
     public CommandData getCommandData() {
