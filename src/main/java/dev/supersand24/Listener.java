@@ -3,6 +3,7 @@ package dev.supersand24;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import dev.supersand24.economy.cardStore.CardStoreCommand;
 import dev.supersand24.counters.CounterCommand;
@@ -50,6 +51,7 @@ public class Listener extends ListenerAdapter {
     private final Map<String, ICommand> commands = new HashMap<>();
 
     public Listener() {
+        /*
         commands.put("counter", new CounterCommand());
         commands.put("roles", new RolesCommand());
         commands.put("event", new EventCommand());
@@ -58,6 +60,7 @@ public class Listener extends ListenerAdapter {
         commands.put("debt", new DebtCommand());
         commands.put("vc", new VoiceCommand());
         commands.put("card-store", new CardStoreCommand());
+         */
     }
 
     @Override
@@ -139,17 +142,15 @@ public class Listener extends ListenerAdapter {
 
     @Override
     public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent e) {
-        if (e.getGuild() == null) return; // Prevent DMs from breaking it
-        String guildId = e.getGuild().getId();
+        if (e.getGuild() == null) return;
 
-        if (e.getFocusedOption().getName().equals("counter")) {
-            List<Command.Choice> options = CounterManager.getCounterNames(guildId).stream()
-                    .filter(counterName -> counterName.startsWith(e.getFocusedOption().getValue()))
-                    .map(counterName -> new Command.Choice(counterName, counterName))
-                    .toList();
-
-            e.replyChoices(options).queue();
+        ICommand command = ModuleManager.getCommand(e.getName());
+        if (command == null) {
+            log.error("Unknown Auto Complete Received. {}", e.getName());
+            return;
         }
+
+        command.handleAutoComplete(e);
     }
 
     @Override
@@ -180,11 +181,24 @@ public class Listener extends ListenerAdapter {
     public void onStringSelectInteraction(StringSelectInteractionEvent e) {
         log.info("{} was selected.", e.getComponentId());
 
-        ICommand command = commands.get(e.getComponentId().split(":")[0]);
-        if (command != null)
-            command.handleStringSelectInteraction(e);
-        else
-            e.reply("Something went wrong!").setEphemeral(true).queue();
+        String[] split = e.getComponentId().split("/");
+
+        ICommand command = ModuleManager.getCommand(split[0]);
+        if (command == null) {
+            log.error("Unknown Command Received! " + split[0]);
+            e.reply("Unknown Command!").setEphemeral(true).queue();
+            return;
+        }
+
+        IModule module = ModuleManager.getModuleForCommand(split[0]);
+        GuildSettings settings = DataStore.get(e.getGuild().getId(), "settings");
+
+        if (!settings.enabledModules.contains(module.getName())) {
+            e.reply("❌ The **" + module.getName() + "** module is currently disabled.").setEphemeral(true).queue();
+            return;
+        }
+
+        command.handleStringSelectInteraction(e);
     }
 
     @Override
@@ -353,8 +367,8 @@ public class Listener extends ListenerAdapter {
 
             // Command: !module available (Lists every command the bot knows)
             if (args.length == 2 && args[1].equalsIgnoreCase("available")) {
-                String allCommands = String.join(", ", commands.keySet());
-                e.getChannel().sendMessage("📦 **All Available Bot Modules:**\n`" + allCommands + "`").queue();
+                String allModules = ModuleManager.MODULES.stream().map(IModule::getName).collect(Collectors.joining(", "));
+                e.getChannel().sendMessage("📦 **All Available Bot Modules:**\n`" + allModules + "`").queue();
                 return;
             }
 
@@ -377,7 +391,7 @@ public class Listener extends ListenerAdapter {
             if (args.length == 4) {
                 String guildId = args[1];
                 String action = args[2].toLowerCase(); // "add" or "remove"
-                String commandName = args[3].toLowerCase();
+                String moduleName = args[3].toLowerCase();
 
                 Guild guild = e.getJDA().getGuildById(guildId);
                 if (guild == null) {
@@ -385,30 +399,30 @@ public class Listener extends ListenerAdapter {
                     return;
                 }
 
-                if (!commands.containsKey(commandName)) {
-                    e.getChannel().sendMessage("❌ Unknown command module: `" + commandName + "`\nType `!module available` to see a list.").queue();
+                if (!ModuleManager.MODULES.stream().anyMatch(m -> m.getName().equalsIgnoreCase(moduleName))){
+                    e.getChannel().sendMessage("❌ Unknown command module: `" + moduleName + "`\nType `!module available` to see a list.").queue();
                     return;
                 }
 
                 GuildSettings settings = DataStore.get(guildId, "settings");
 
                 if (action.equals("add")) {
-                    if (!settings.enabledModules.contains(commandName)) {
-                        settings.enabledModules.add(commandName);
+                    if (!settings.enabledModules.contains(moduleName)) {
+                        settings.enabledModules.add(moduleName);
                         DataStore.markDirty(guildId, "settings");
                         updateGuildCommands(guild);
-                        e.getChannel().sendMessage("✅ Added `" + commandName + "` to **" + guild.getName() + "**").queue();
+                        e.getChannel().sendMessage("✅ Added `" + moduleName + "` to **" + guild.getName() + "**").queue();
                     } else {
-                        e.getChannel().sendMessage("⚠️ `" + commandName + "` is already enabled there.").queue();
+                        e.getChannel().sendMessage("⚠️ `" + moduleName + "` is already enabled there.").queue();
                     }
                 } else if (action.equals("remove")) {
-                    if (settings.enabledModules.contains(commandName)) {
-                        settings.enabledModules.remove(commandName);
+                    if (settings.enabledModules.contains(moduleName)) {
+                        settings.enabledModules.remove(moduleName);
                         DataStore.markDirty(guildId, "settings");
                         updateGuildCommands(guild);
-                        e.getChannel().sendMessage("✅ Removed `" + commandName + "` from **" + guild.getName() + "**").queue();
+                        e.getChannel().sendMessage("✅ Removed `" + moduleName + "` from **" + guild.getName() + "**").queue();
                     } else {
-                        e.getChannel().sendMessage("⚠️ `" + commandName + "` is not enabled there.").queue();
+                        e.getChannel().sendMessage("⚠️ `" + moduleName + "` is not enabled there.").queue();
                     }
                 } else {
                     e.getChannel().sendMessage("❌ Invalid action. Use `add` or `remove`.").queue();

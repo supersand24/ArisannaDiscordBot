@@ -7,6 +7,7 @@ import dev.supersand24.economy.events.EventData;
 import dev.supersand24.economy.expenses.DebtData;
 import dev.supersand24.economy.expenses.ExpenseData;
 import dev.supersand24.economy.expenses.PaymentInfo;
+import dev.supersand24.grandarchive.CardCache;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -31,6 +32,8 @@ public class ArisannaBot {
 
     public static void main(String[] args) {
 
+        CardCache.loadCache();
+
         DataStore.register(
                 "counters",
                 "counters.json",
@@ -43,7 +46,6 @@ public class ArisannaBot {
                 new TypeToken<ConcurrentHashMap<String, List<PaymentInfo>>>() {}.getType(),
                 ConcurrentHashMap::new
         );
-
         DataStore.register(
                 "expenses",
                 "expenses.json",

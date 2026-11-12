@@ -8,4 +8,8 @@ public interface IModule {
 
     List<ICommand> getCommands();
 
+    public default boolean IsEnabled(GuildSettings settings) {
+        return settings.enabledModules.contains(getName());
+    }
+
 }

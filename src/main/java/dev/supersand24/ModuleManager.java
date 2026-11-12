@@ -2,6 +2,7 @@ package dev.supersand24;
 
 import dev.supersand24.autovoice.AutoVoiceModule;
 import dev.supersand24.economy.EconomyModule;
+import dev.supersand24.grandarchive.GrandArchiveModule;
 import dev.supersand24.logging.LogModule;
 
 import java.util.Arrays;
@@ -12,7 +13,8 @@ public class ModuleManager {
     public static final List<IModule> MODULES = Arrays.asList(
             new EconomyModule(),
             new AutoVoiceModule(),
-            new LogModule()
+            new LogModule(),
+            new GrandArchiveModule()
     );
 
     public static IModule getModuleForCommand(String commandName) {

@@ -18,4 +18,5 @@ public class LogModule implements IModule {
 
     @Override
     public List<ICommand> getCommands() { return commands; }
+
 }

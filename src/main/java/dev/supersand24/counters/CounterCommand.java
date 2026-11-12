@@ -3,12 +3,16 @@ package dev.supersand24.counters;
 import dev.supersand24.ICommand;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.*;
+
+import java.util.List;
 
 public class CounterCommand implements ICommand {
 
@@ -154,6 +158,18 @@ public class CounterCommand implements ICommand {
             }
             default -> throw new IllegalStateException("Unexpected value: " + e.getSubcommandGroup());
         }
+    }
+
+    @Override
+    public void handleAutoComplete(CommandAutoCompleteInteractionEvent e) {
+
+        List<Command.Choice> options = CounterManager.getCounterNames(e.getGuild().getId()).stream()
+                .filter(counterName -> counterName.startsWith(e.getFocusedOption().getValue()))
+                .map(counterName -> new Command.Choice(counterName, counterName))
+                .toList();
+
+        e.replyChoices(options).queue();
+
     }
 
 }

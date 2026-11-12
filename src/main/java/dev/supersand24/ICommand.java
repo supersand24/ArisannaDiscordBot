@@ -1,6 +1,7 @@
 package dev.supersand24;
 
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
@@ -24,5 +25,7 @@ public interface ICommand {
     default void handleEntitySelectInteraction(EntitySelectInteractionEvent e) {}
 
     default void handleModalInteraction(ModalInteractionEvent e) {}
+
+    default void handleAutoComplete(CommandAutoCompleteInteractionEvent e) {}
 
 }
