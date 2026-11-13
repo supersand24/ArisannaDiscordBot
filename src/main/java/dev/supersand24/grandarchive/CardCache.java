@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,11 +67,39 @@ public class CardCache {
             cardUuidMap.clear();
 
             for (Card card : cards) {
-                if (card.getName() != null) {
-                    cardMap.put(card.getName().toLowerCase(), card);
-                }
-                if (card.getUuid() != null) {
-                    cardUuidMap.put(card.getUuid(), card);
+                if (card.getName() != null) { cardMap.put(card.getName().toLowerCase(), card); }
+                if (card.getUuid() != null) { cardUuidMap.put(card.getUuid(), card); }
+
+                if (card.getEditions() != null) {
+                    for (CardEdition ed : card.getEditions()) {
+
+                        if (ed.getOtherOrientations() != null) {
+                            for (Card flipSideData : ed.getOtherOrientations()) {
+                                String flipUuid = flipSideData.getUuid();
+                                CardEdition backEdition = flipSideData.getSingularEdition();
+
+                                if (backEdition != null) {
+                                    backEdition.setParentCardUuid(card.getUuid());
+                                    backEdition.setParentEditionUuid(ed.getUuid());
+                                }
+
+                                if (cardUuidMap.containsKey(flipUuid)) {
+                                    if (backEdition != null) {
+                                        cardUuidMap.get(flipUuid).addEdition(backEdition);
+                                    }
+                                } else {
+                                    if (backEdition != null){
+                                        flipSideData.setEditions(new ArrayList<>(List.of(backEdition)));
+                                    }
+                                    cardUuidMap.put(flipUuid, flipSideData);
+
+                                    if (flipSideData.getName() != null) {
+                                        cardMap.put(flipSideData.getName().toLowerCase(), flipSideData);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

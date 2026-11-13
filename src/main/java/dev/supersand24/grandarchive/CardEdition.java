@@ -1,34 +1,52 @@
 package dev.supersand24.grandarchive;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.List;
 
 public class CardEdition {
-
     private String uuid;
-    private String slug;
-    private String illustrator;
+    private String collector_number;
     private String image;
-    private int rarity;
 
-    @SerializedName("is_default") private boolean isDefault;
-    @SerializedName("collector_number")  private String collectorNumber;
+    @SerializedName("default_edition")
+    private boolean defaultEdition;
 
+    public static class CardSet {
+        private String name;
+        private String prefix;
+        public String getName() { return name; }
+        public String getPrefix() { return prefix; }
+    }
     private CardSet set;
 
+    // Flip Card Data
+    private String configuration;
+    private String orientation;
 
-    // --- Getters ---
+    @SerializedName("other_orientations")
+    private List<Card> otherOrientations;
+
+    // Injected parent links (Ignored by Gson)
+    private transient String parentCardUuid;
+    private transient String parentEditionUuid;
+
     public String getUuid() { return uuid; }
-    public String getSlug() { return slug; }
-    public String getIllustrator() { return illustrator; }
-    public int getRarity() { return rarity; }
-    public boolean isDefault() { return isDefault; }
-    public String getCollectorNumber() { return collectorNumber; }
+    public String getCollectorNumber() { return collector_number; }
+    public boolean isDefaultEdition() { return defaultEdition; }
     public CardSet getSet() { return set; }
 
-
+    // Assuming you prepend the base URL for Discord
     public String getFullImageUrl() {
-        if (image == null || image.isEmpty()) return null;
-        return "https://api.gatcg.com" + image;
+        return image != null ? "https://api.gatcg.com" + image : null;
     }
 
+    public String getConfiguration() { return configuration; }
+    public String getOrientation() { return orientation; }
+    public List<Card> getOtherOrientations() { return otherOrientations; }
+
+    public String getParentCardUuid() { return parentCardUuid; }
+    public void setParentCardUuid(String parentCardUuid) { this.parentCardUuid = parentCardUuid; }
+
+    public String getParentEditionUuid() { return parentEditionUuid; }
+    public void setParentEditionUuid(String parentEditionUuid) { this.parentEditionUuid = parentEditionUuid; }
 }

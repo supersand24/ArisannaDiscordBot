@@ -216,6 +216,26 @@ public class Listener extends ListenerAdapter {
     public void onButtonInteraction(ButtonInteractionEvent e) {
         log.info("{} was pressed.", e.getComponentId());
 
+        String[] split = e.getComponentId().split("/");
+
+        ICommand command = ModuleManager.getCommand(split[0]);
+        if (command == null) {
+            log.error("Unknown Command Received! " + split[0]);
+            e.reply("Unknown Command!").setEphemeral(true).queue();
+            return;
+        }
+
+        IModule module = ModuleManager.getModuleForCommand(split[0]);
+        GuildSettings settings = DataStore.get(e.getGuild().getId(), "settings");
+
+        if (!settings.enabledModules.contains(module.getName())) {
+            e.reply("❌ The **" + module.getName() + "** module is currently disabled.").setEphemeral(true).queue();
+            return;
+        }
+
+        command.handleButtonInteraction(e);
+
+        /*
         String prefix = e.getComponentId().split(":")[0];
         ICommand command = commands.get(prefix);
 
@@ -250,6 +270,7 @@ public class Listener extends ListenerAdapter {
             e.getHook().sendMessageEmbeds(embed.build()).queue();
         } else
             e.reply("Something went wrong!").setEphemeral(true).queue();
+         */
     }
 
     @Override
